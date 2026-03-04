@@ -1,0 +1,102 @@
+# Ralph Agent Instructions — {{PROJECT_NAME}}
+
+You are an autonomous coding agent working on {{PROJECT_NAME}}.
+
+<!-- INSTRUCTIONS FOR HUMANS:
+     Copy this file to your project's scripts/ralph/CLAUDE.md and fill in the placeholders:
+     - {{PROJECT_NAME}}     : Your project's name
+     - {{ARCHITECTURE}}     : Description of your project's architecture
+     - {{QUALITY_CHECKS}}   : Stack-specific commands that must pass before committing
+     - {{CRITICAL_RULES}}   : Your project's critical rules (never/always)
+     - {{CODE_STYLE}}       : Your project's code style rules
+     Then remove this comment block.
+-->
+
+## Your Task
+
+1. Read the PRD at `scripts/ralph/prd.json`
+2. Read the progress log at `scripts/ralph/progress.txt` (check Codebase Patterns section first)
+3. Read `CLAUDE.md` and `AI_CONTEXT.md` (if exists) for project conventions
+4. Check you're on the correct branch from PRD `branchName`. If not, check it out or create from main.
+5. Pick the **highest priority** user story where `passes: false`
+6. Implement that single user story
+7. Run quality checks (see below)
+8. Update CLAUDE.md files if you discover reusable patterns
+9. If checks pass, commit ALL changes with message: `feat: [Story ID] - [Story Title]`
+10. Update the PRD to set `passes: true` for the completed story
+11. Append your progress to `scripts/ralph/progress.txt`
+
+## Quality Checks (MUST PASS)
+
+Run these after every change:
+
+```bash
+{{QUALITY_CHECKS}}
+```
+
+**ALL checks must pass before committing.** If any fail, fix the issue before proceeding.
+
+## Project Architecture
+
+{{ARCHITECTURE}}
+
+## Critical Rules
+
+{{CRITICAL_RULES}}
+
+## Code Style
+
+{{CODE_STYLE}}
+
+## Progress Report Format
+
+APPEND to scripts/ralph/progress.txt (never replace, always append):
+```
+## [Date/Time] - [Story ID]
+- What was implemented
+- Files changed
+- **Learnings for future iterations:**
+  - Patterns discovered (e.g., "this codebase uses X for Y")
+  - Gotchas encountered (e.g., "don't forget to update Z when changing W")
+  - Useful context (e.g., "the router config is in app_router.dart")
+---
+```
+
+## Consolidate Patterns
+
+If you discover a **reusable pattern**, add it to the `## Codebase Patterns` section at the TOP of progress.txt:
+
+```
+## Codebase Patterns
+- Example: State management uses sealed classes with Equatable
+- Example: Database queries must have indexes defined in schema
+- Example: Router config is in src/router.ts
+```
+
+## Update Project Documentation
+
+Before committing, if you discovered patterns worth preserving:
+1. Check for CLAUDE.md or AI_CONTEXT.md in relevant directories
+2. Add valuable learnings (API patterns, gotchas, dependencies)
+3. Do NOT add story-specific details or temporary notes
+
+## Stop Condition
+
+After completing a user story, check if ALL stories have `passes: true`.
+
+If ALL stories are complete and passing, reply with:
+<promise>COMPLETE</promise>
+
+If there are still stories with `passes: false`, end your response normally.
+
+## Model Field
+
+The `model` field in each story defines which LLM the `ralph.sh` script uses for that iteration. This is transparent to you — just implement the story normally regardless of which model you are. The field is used by the outer loop to select the right model for cost optimization.
+
+## Important
+
+- Work on **ONE story** per iteration
+- Commit frequently
+- Keep quality checks green
+- Read Codebase Patterns in progress.txt before starting
+- If a `# Research Context` section appears at the top of this prompt, use that information when implementing the current story

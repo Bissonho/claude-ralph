@@ -1,0 +1,86 @@
+{
+  "project": "My Project",
+  "branchName": "ralph/feature-name",
+  "description": "Brief description of the feature being implemented",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add schema table",
+      "description": "As a developer, I need to define the database schema so that data can be persisted.",
+      "acceptanceCriteria": [
+        "Table created with correct fields and indexes",
+        "Migration runs successfully",
+        "Typecheck/lint passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "tddType": "infra",
+      "effort": "low",
+      "model": "haiku",
+      "research": false,
+      "research_query": "",
+      "research_model": "perplexity/sonar-pro",
+      "notes": "Define indexes for all fields used in queries."
+    },
+    {
+      "id": "US-002",
+      "title": "Implement backend API endpoint",
+      "description": "As a developer, I need query and mutation functions so that the frontend can read and write data.",
+      "acceptanceCriteria": [
+        "Query returns list of records filtered by user",
+        "Mutation creates/updates records correctly",
+        "Typecheck passes",
+        "Backend deployed successfully"
+      ],
+      "priority": 2,
+      "passes": false,
+      "tddType": "testable",
+      "effort": "medium",
+      "model": "sonnet",
+      "research": false,
+      "research_query": "",
+      "research_model": "perplexity/sonar-pro",
+      "notes": "Deploy after changes: run deploy command. If login required, warn user."
+    },
+    {
+      "id": "US-003",
+      "title": "Integrate payment provider",
+      "description": "As a user, I want to pay for a subscription so that I can access premium features.",
+      "acceptanceCriteria": [
+        "Payment flow completes successfully in test mode",
+        "Receipt stored in database after payment",
+        "Error handling for declined cards",
+        "Typecheck/lint passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "tddType": "testable",
+      "effort": "high",
+      "model": "opus",
+      "research": true,
+      "research_query": "Best practices for integrating Stripe payment intents with webhook handling in Node.js 2025",
+      "research_model": "perplexity/sonar-pro",
+      "notes": "Use test mode keys from .env. Research context will be injected by Ralph."
+    },
+    {
+      "id": "US-004",
+      "title": "Build list page UI",
+      "description": "As a user, I want to see a list of items so that I can choose what to view.",
+      "acceptanceCriteria": [
+        "List renders with loading, empty, and data states",
+        "Pull-to-refresh works",
+        "Tapping an item navigates to detail page",
+        "Lint/typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "tddType": "frontend",
+      "effort": "medium",
+      "model": "sonnet",
+      "research": false,
+      "research_query": "",
+      "research_model": "perplexity/sonar-pro",
+      "notes": "Reuse existing list item component from core/widgets."
+    }
+  ]
+}

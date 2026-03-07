@@ -67,8 +67,8 @@
       "model": "haiku",
       "notes": "",
       "startedAt": "2026-03-07T16:51:14.533Z",
-      "completedAt": "2026-03-08T21:37:00.000Z",
-      "durationMs": 45000
+      "completedAt": "2026-03-07T16:52:21.128Z",
+      "durationMs": 66594
     },
     {
       "id": "SUM-004",
@@ -80,11 +80,14 @@
         "sumOdds([1,3,5]) returns 9"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "tddType": "testable",
       "effort": "low",
       "model": "haiku",
-      "notes": ""
+      "notes": "",
+      "startedAt": "2026-03-07T17:00:55.759Z",
+      "completedAt": "2026-03-07T16:52:24.540Z",
+      "durationMs": 1409
     },
     {
       "id": "SUM-005",

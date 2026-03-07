@@ -4,6 +4,7 @@ import { Config } from '../core/config.js';
 import { generatePrompt } from '../core/prompt.js';
 import { spawnAgent } from '../core/runner.js';
 import { ActivityLogger } from '../core/activity.js';
+import { GlobalRegistry } from '../core/registry.js';
 import { info, warn, error, success, c, progressBar, formatDuration, findPrdDir, calculateEta } from '../utils.js';
 
 // Read .ralph/.feedback content and delete the file. Returns trimmed content or ''.
@@ -55,6 +56,17 @@ export async function run(opts = {}) {
 
   // Lock
   config.acquireLock();
+
+  // Global registry
+  const registry = new GlobalRegistry();
+  registry.register({
+    project: data.project,
+    branch: data.branchName,
+    projectPath: prdDir.replace(/\/.ralph$/, ''),
+    prdDir,
+    pid: process.pid,
+    startedAt: new Date().toISOString(),
+  });
 
   // Activity logger
   const logger = new ActivityLogger(prdDir);
@@ -214,6 +226,7 @@ export async function run(opts = {}) {
       warn(`Reached max iterations. ${finalProgress.pending}/${finalProgress.total} stories remaining.`);
     }
   } finally {
+    registry.deregister(process.pid);
     config.releaseLock();
     process.removeListener('SIGINT', shutdown);
     process.removeListener('SIGTERM', shutdown);

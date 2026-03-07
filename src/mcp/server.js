@@ -223,6 +223,118 @@ const TOOLS = [
       additionalProperties: false,
     },
   },
+  {
+    name: 'ralph_worktree_create',
+    description: 'Create a git worktree with a new branch. Copies codebase patterns from main .ralph/.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Worktree name (used as directory name)' },
+        branch: { type: 'string', description: 'New branch name to create in the worktree' },
+      },
+      required: ['name', 'branch'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'ralph_worktree_remove',
+    description: 'Remove a worktree by name. Fails if the worktree is currently running.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Worktree name to remove' },
+      },
+      required: ['name'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'ralph_worktree_list',
+    description: 'List all worktrees with their status (idle, running, complete) and branch info.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'ralph_worktree_run',
+    description: 'Start ralph run in a specific worktree. Runs in background.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Worktree name to run' },
+        maxIterations: { type: 'number', default: 30 },
+        tool: { type: 'string', enum: ['claude', 'amp'], default: 'claude' },
+      },
+      required: ['name'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'ralph_worktree_run_all',
+    description: 'Start ralph run in all idle worktrees in parallel.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        maxIterations: { type: 'number', default: 30 },
+        tool: { type: 'string', enum: ['claude', 'amp'], default: 'claude' },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'ralph_worktree_create_prd',
+    description: 'Create a prd.json inside a specific worktree.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Worktree name' },
+        project: { type: 'string', description: 'Project name' },
+        branchName: { type: 'string', description: 'Git branch name' },
+        description: { type: 'string', description: 'Project/feature description' },
+        qualityChecks: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              command: { type: 'string' },
+            },
+            required: ['name', 'command'],
+          },
+        },
+        userStories: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              title: { type: 'string' },
+              description: { type: 'string' },
+              acceptanceCriteria: { type: 'array', items: { type: 'string' } },
+              priority: { type: 'number' },
+              tddType: { type: 'string' },
+              effort: { type: 'string' },
+              model: { type: 'string' },
+              notes: { type: 'string' },
+            },
+            required: ['id', 'title'],
+          },
+        },
+      },
+      required: ['name', 'project', 'branchName', 'userStories'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'ralph_worktree_merge',
+    description: 'Merge a completed worktree branch into the current branch and remove the worktree.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Worktree name to merge' },
+      },
+      required: ['name'],
+      additionalProperties: false,
+    },
+  },
 ];
 
 // --- Tool Handlers ---
@@ -458,6 +570,78 @@ async function handleTool(name, args) {
       }
       config.saveGlobalConfig(cfg);
       return { ok: true, id: args.id, enabled: args.enabled };
+    }
+
+    case 'ralph_worktree_create': {
+      const { WorktreeManager } = await import('../core/worktree.js');
+      const wm = new WorktreeManager(findPrdDir());
+      const entry = wm.create(args.name, args.branch);
+      return { ok: true, ...entry };
+    }
+
+    case 'ralph_worktree_remove': {
+      const { WorktreeManager } = await import('../core/worktree.js');
+      const wm = new WorktreeManager(findPrdDir());
+      wm.remove(args.name);
+      return { ok: true, name: args.name };
+    }
+
+    case 'ralph_worktree_list': {
+      const { WorktreeManager } = await import('../core/worktree.js');
+      const wm = new WorktreeManager(findPrdDir());
+      return wm.list();
+    }
+
+    case 'ralph_worktree_run': {
+      const { WorktreeManager } = await import('../core/worktree.js');
+      const wm = new WorktreeManager(findPrdDir());
+      const result = wm.startRun(args.name, args.maxIterations, args.tool);
+      return { ok: true, ...result };
+    }
+
+    case 'ralph_worktree_run_all': {
+      const { WorktreeManager } = await import('../core/worktree.js');
+      const wm = new WorktreeManager(findPrdDir());
+      const results = wm.startAll(args.maxIterations, args.tool);
+      return { ok: true, started: results };
+    }
+
+    case 'ralph_worktree_create_prd': {
+      const { WorktreeManager } = await import('../core/worktree.js');
+      const wm = new WorktreeManager(findPrdDir());
+      const wtConfig = wm.getConfig(args.name);
+      const state = wtConfig.getPrdState();
+      if (state !== 'empty') {
+        const summary = wtConfig.getPrdSummary();
+        return { ok: false, state, ...summary, message: 'PRD already exists in this worktree.' };
+      }
+      const prdData = {
+        project: args.project,
+        branchName: args.branchName,
+        description: args.description || '',
+        qualityChecks: args.qualityChecks || [],
+        userStories: (args.userStories || []).map((s, i) => ({
+          id: s.id,
+          title: s.title,
+          description: s.description || '',
+          acceptanceCriteria: s.acceptanceCriteria || [],
+          priority: s.priority || i + 1,
+          passes: false,
+          tddType: s.tddType || 'frontend',
+          effort: s.effort || 'medium',
+          model: s.model || 'sonnet',
+          notes: s.notes || '',
+        })),
+      };
+      const result = wtConfig.createPrd(prdData);
+      return { ok: true, worktree: args.name, ...result };
+    }
+
+    case 'ralph_worktree_merge': {
+      const { WorktreeManager } = await import('../core/worktree.js');
+      const wm = new WorktreeManager(findPrdDir());
+      wm.merge(args.name);
+      return { ok: true, name: args.name };
     }
 
     default:

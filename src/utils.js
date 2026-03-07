@@ -145,3 +145,55 @@ export function formatDuration(ms) {
   const sec = Math.round((ms % 60_000) / 1000);
   return `${min}m${sec}s`;
 }
+
+// Fallback defaults (ms) when no completed story history exists for a category
+const ETA_DEFAULTS = {
+  'low/sonnet':    2 * 60_000,
+  'low/opus':      4 * 60_000,
+  'medium/sonnet': 5 * 60_000,
+  'medium/opus':  10 * 60_000,
+  'high/sonnet':  10 * 60_000,
+  'high/opus':    20 * 60_000,
+};
+
+/**
+ * Calculate ETA for remaining stories based on completed story durations.
+ * @param {object} data - PRD data (with userStories array)
+ * @param {number} loopStartedAt - timestamp (ms) when the loop started
+ * @returns {{ elapsedMs, etaMs, etaFormatted, avgPerCategory }}
+ */
+export function calculateEta(data, loopStartedAt) {
+  const elapsedMs = Date.now() - loopStartedAt;
+  const stories = data.userStories || [];
+
+  // Group completed story durations by 'effort/model' category
+  const categoryDurations = {};
+  for (const story of stories) {
+    if (story.passes && typeof story.durationMs === 'number') {
+      const model = (story.model || 'sonnet').replace(/^openrouter:.*$/, 'sonnet');
+      const key = `${story.effort || 'medium'}/${model}`;
+      if (!categoryDurations[key]) categoryDurations[key] = [];
+      categoryDurations[key].push(story.durationMs);
+    }
+  }
+
+  // Calculate averages per category
+  const avgPerCategory = {};
+  for (const [key, durations] of Object.entries(categoryDurations)) {
+    avgPerCategory[key] = Math.round(durations.reduce((a, b) => a + b, 0) / durations.length);
+  }
+
+  // Estimate remaining time for pending stories
+  const pendingStories = stories.filter((s) => !s.passes);
+  let etaMs = 0;
+  for (const story of pendingStories) {
+    const model = (story.model || 'sonnet').replace(/^openrouter:.*$/, 'sonnet');
+    const key = `${story.effort || 'medium'}/${model}`;
+    const estimate = avgPerCategory[key] ?? ETA_DEFAULTS[key] ?? ETA_DEFAULTS['medium/sonnet'];
+    etaMs += estimate;
+  }
+
+  const etaFormatted = `~${Math.round(etaMs / 60_000)}m`;
+
+  return { elapsedMs, etaMs, etaFormatted, avgPerCategory };
+}

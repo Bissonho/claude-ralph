@@ -4,7 +4,7 @@ import { Config } from '../core/config.js';
 import { generatePrompt } from '../core/prompt.js';
 import { spawnAgent } from '../core/runner.js';
 import { ActivityLogger } from '../core/activity.js';
-import { info, warn, error, success, c, progressBar, formatDuration, findPrdDir } from '../utils.js';
+import { info, warn, error, success, c, progressBar, formatDuration, findPrdDir, calculateEta } from '../utils.js';
 
 // Read .ralph/.feedback content and delete the file. Returns trimmed content or ''.
 export function readAndClearFeedback(prdDir) {
@@ -88,6 +88,7 @@ export async function run(opts = {}) {
     info(`Starting loop: ${c.bold}${maxIterations}${c.reset} max iterations, tool: ${c.bold}${tool}${c.reset}`);
     console.log('');
 
+    const loopStartedAt = Date.now();
     logger.emit({ type: 'loop_start', maxIterations, tool });
 
     for (let i = 1; i <= maxIterations; i++) {
@@ -99,7 +100,7 @@ export async function run(opts = {}) {
 
       if (!story) {
         success('All stories complete!');
-        config.updateStatus(formatStatus(config, currentData, i, maxIterations, '-', 'COMPLETE'));
+        config.updateStatus(formatStatus(config, currentData, i, maxIterations, '-', 'COMPLETE', loopStartedAt));
         break;
       }
 
@@ -117,7 +118,7 @@ export async function run(opts = {}) {
       logger.emit({ type: 'story_start', storyId: story.id, title: story.title, model: storyModel, effort: storyEffort, iteration: i });
 
       config.updateStatus(
-        formatStatus(config, currentData, i, maxIterations, story.id, `running: ${story.title}`)
+        formatStatus(config, currentData, i, maxIterations, story.id, `running: ${story.title}`, loopStartedAt)
       );
 
       // Research phase
@@ -147,6 +148,10 @@ export async function run(opts = {}) {
         prompt = `## User Feedback\n\n${feedback}\n\n---\n\n${prompt}`;
       }
 
+      // Record startedAt on the story
+      const storyStartedAt = new Date().toISOString();
+      config.updateStory(story.id, { startedAt: storyStartedAt });
+
       // Open log stream for this story
       const logStream = logger.startStoryLog(story.id);
       const onData = (chunk) => logStream.write(chunk);
@@ -156,6 +161,9 @@ export async function run(opts = {}) {
       const startTime = Date.now();
       const result = await spawnAgent(prompt, story, tool, onData);
       const elapsed = Date.now() - startTime;
+
+      // Record completedAt and durationMs on the story
+      config.updateStory(story.id, { completedAt: new Date().toISOString(), durationMs: elapsed });
 
       // Close log stream
       await new Promise((resolve) => logStream.end(resolve));
@@ -173,13 +181,13 @@ export async function run(opts = {}) {
       }
 
       config.updateStatus(
-        formatStatus(config, refreshedData, i, maxIterations, story.id, 'done')
+        formatStatus(config, refreshedData, i, maxIterations, story.id, 'done', loopStartedAt)
       );
 
       // Check for completion signal
       if (result.output && result.output.includes('<promise>COMPLETE</promise>')) {
         config.updateStatus(
-          formatStatus(config, refreshedData, i, maxIterations, '-', 'COMPLETE')
+          formatStatus(config, refreshedData, i, maxIterations, '-', 'COMPLETE', loopStartedAt)
         );
         console.log('');
         success(`All tasks complete! Finished at iteration ${i}/${maxIterations}`);
@@ -239,10 +247,16 @@ function archiveIfNeeded(config, data) {
   }
 }
 
-function formatStatus(config, data, iteration, maxIterations, storyId, status) {
+function formatStatus(config, data, iteration, maxIterations, storyId, status, loopStartedAt) {
   const { done, total, pct } = config.getProgress(data);
   const time = new Date().toTimeString().split(' ')[0];
-  return `${done}/${total} (${pct}%) | ${storyId} | ${status} | iter ${iteration}/${maxIterations} | ${time}`;
+  let line = `${done}/${total} (${pct}%) | ${storyId} | ${status} | iter ${iteration}/${maxIterations} | ${time}`;
+  if (loopStartedAt) {
+    const { elapsedMs, etaMs, etaFormatted } = calculateEta(data, loopStartedAt);
+    const elapsedMin = Math.round(elapsedMs / 60_000);
+    line += ` | elapsed ${elapsedMin}m | eta ${etaFormatted}`;
+  }
+  return line;
 }
 
 function sleep(ms) {

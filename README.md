@@ -39,15 +39,16 @@ Install Ralph globally: npm install -g github:Bissonho/claude-ralph
 
 Then run these commands:
 1. ralph init
-2. Find where ralph is installed by running: which ralph
-3. Create .mcp.json using the FULL PATH from step 2, like:
+2. ralph extension  (installs the VS Code visual dashboard)
+3. Find where ralph is installed by running: which ralph
+4. Create .mcp.json using the FULL PATH from step 3, like:
    {"mcpServers":{"ralph":{"command":"/opt/homebrew/bin/ralph","args":["mcp"]}}}
    (the path may differ on your machine — use the output from `which ralph`)
 
 Once done, ask me: "What do you want to build?" — then create a PRD with user stories using the ralph_create_prd MCP tool, and start the loop with ralph_start.
 ```
 
-That's it. Claude will install Ralph, configure MCP, ask what you want to build, generate the PRD, and start coding autonomously.
+That's it. Claude will install Ralph, configure MCP, and the VS Code extension gives you a visual dashboard. Ask what you want to build, generate the PRD, and start coding autonomously.
 
 > **Why the full path?** MCP servers are spawned with a minimal PATH. Using the absolute path to `ralph` ensures Claude Code can always find it.
 
@@ -102,7 +103,10 @@ ralph run
 ralph init                        Initialize .ralph/ with auto-detected quality checks
 ralph run [options]               Start the autonomous loop
 ralph status                      Show progress
+ralph worktree <subcommand>       Manage git worktrees for parallel PRD runs
 ralph dashboard [--port 3741]     Visual task board with live updates (SSE)
+ralph hub [--port 3742]           Unified dashboard for all active loops
+ralph extension                   Install the VS Code extension
 ralph mcp                         Start MCP server for Claude Code integration
 ```
 
@@ -120,19 +124,22 @@ ralph mcp                         Start MCP server for Claude Code integration
 Full visual dashboard integrated into VS Code sidebar.
 
 ```bash
-cd claude-ralph/vscode
-npm install
-npm run vscode:install
+ralph extension    # That's it — installs the bundled VS Code extension
 ```
+
+> Reload VS Code after installing (Cmd+Shift+P → "Reload Window").
 
 **Features:**
 - Activity Bar icon with sidebar panel
 - TreeView of stories grouped by status (Running / Pending / Done)
-- Progress bar with real-time updates
-- Start/Stop loop buttons
-- Dashboard webview panel
+- Live Activity Panel with real-time event log and feedback input
+- OpenRouter settings panel (API key, model selection)
+- Worktrees panel for parallel PRD execution
+- Hub panel for monitoring all active loops
+- Progress bar with elapsed time and ETA
+- Start/Stop/Pause/Skip loop controls
 - Status bar indicator
-- Add/Edit/Remove stories from the UI
+- Add/Edit/Remove stories with per-story model selection
 - Archive PRD and start new
 
 ## MCP Integration

@@ -127,7 +127,7 @@
         "run-all shows a consolidated status of all parallel loops"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "tddType": "frontend",
       "effort": "medium",
       "model": "sonnet",
@@ -148,7 +148,7 @@
         "All tools follow existing MCP patterns with compact JSON responses"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "tddType": "frontend",
       "effort": "medium",
       "model": "sonnet",

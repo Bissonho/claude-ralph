@@ -33,3 +33,14 @@ Started: 2026-03-07T15:48:58.002Z
 - Files: src/core/worktree.js (new), src/core/worktree.test.js (new)
 - Learnings: Mockable internal methods (_exec, _spawn, _isProcessRunning) enable testing git/process operations without real git worktrees; Config class reuse for worktree .ralph/ dirs works cleanly; dirname(prdDir) reliably derives projectRoot from .ralph/ path
 ---
+
+## 2026-03-08 - US-006
+- Implemented: worktreeCommand(args) in src/commands/worktree.js with subcommands: create, remove/rm, list/ls, status, run, run-all, merge; integrated into src/cli.js with 'worktree' case and HELP text update
+- Files: src/commands/worktree.js (new), src/cli.js (modified)
+- Learnings: ESM-only project — no require() allowed, use top-level import { join } from 'path'; WorktreeManager.list() provides status info for display; printWorktreeStatus() wraps Config per worktree to show PRD progress bar; run-all output uses printRunAllStatus() for consolidated view
+---
+## 2026-03-08 - US-007
+- Implemented: ralph_worktree_create, ralph_worktree_remove, ralph_worktree_list, ralph_worktree_run, ralph_worktree_run_all, ralph_worktree_create_prd, ralph_worktree_merge tools in src/mcp/server.js
+- Files: src/mcp/server.js (modified)
+- Learnings: WorktreeManager imported via dynamic import('../core/worktree.js') inside async case handlers; ralph_worktree_create_prd reuses the same prdData shape as ralph_create_prd but targets a worktree's Config via wm.getConfig(name); all 7 tools follow the try/catch handleTool pattern with compact JSON responses
+---

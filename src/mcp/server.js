@@ -414,8 +414,13 @@ export function startMcpServer() {
       return;
     }
 
-    if (msg.method === 'notifications/initialized') {
-      return; // no response
+    if (msg.method === 'notifications/initialized' || msg.method === 'notifications/cancelled') {
+      return; // no response for notifications
+    }
+
+    if (msg.method === 'ping') {
+      transport.send({ jsonrpc: '2.0', id: msg.id, result: {} });
+      return;
     }
 
     if (msg.method === 'tools/list') {

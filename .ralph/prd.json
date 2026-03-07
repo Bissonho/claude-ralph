@@ -332,7 +332,7 @@
         "When loop is not running or no timing data, gracefully hide timing info instead of showing zeros"
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "tddType": "frontend",
       "effort": "medium",
       "model": "sonnet",

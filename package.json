@@ -1,6 +1,6 @@
 {
   "name": "ralph-cli",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Autonomous AI agent loop for Claude Code — iterates through PRD stories until all pass",
   "type": "module",
   "bin": {
@@ -40,5 +40,8 @@
     "url": "git+https://github.com/heimo/claude-ralph.git"
   },
   "author": "heimo",
-  "homepage": "https://github.com/heimo/claude-ralph#readme"
+  "homepage": "https://github.com/heimo/claude-ralph#readme",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1"
+  }
 }

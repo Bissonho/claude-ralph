@@ -1,75 +1,17 @@
-// MCP Server — Zero dependencies, implements JSON-RPC over stdio
+// MCP Server — Uses official @modelcontextprotocol/sdk
 // Claude Code manages Ralph entirely through these tools
 // Responses are compact (token-optimized) — structured JSON, no prose
+
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import {
+  ListToolsRequestSchema,
+  CallToolRequestSchema,
+} from '@modelcontextprotocol/sdk/types.js';
 
 import { Config } from '../core/config.js';
 import { getCompactStatus } from '../commands/status.js';
 import { findPrdDir } from '../utils.js';
-
-// --- Stdio Transport (Content-Length framing, LSP-style) ---
-
-class StdioTransport {
-  constructor() {
-    this.buffer = Buffer.alloc(0);
-    this._handler = null;
-  }
-
-  onMessage(handler) {
-    this._handler = handler;
-  }
-
-  start() {
-    process.stdin.resume();
-    process.stdin.on('data', (chunk) => {
-      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-      this.buffer = Buffer.concat([this.buffer, buf]);
-      this._drain();
-    });
-
-    process.stdin.on('end', () => {
-      process.exit(0);
-    });
-  }
-
-  async _drain() {
-    while (true) {
-      const idx = this.buffer.indexOf('\r\n\r\n');
-      if (idx === -1) break;
-
-      const header = this.buffer.subarray(0, idx).toString();
-      const match = header.match(/Content-Length:\s*(\d+)/i);
-      if (!match) {
-        this.buffer = this.buffer.subarray(idx + 4);
-        continue;
-      }
-
-      const len = parseInt(match[1], 10);
-      const bodyStart = idx + 4;
-
-      if (this.buffer.length < bodyStart + len) break; // incomplete
-
-      const body = this.buffer.subarray(bodyStart, bodyStart + len).toString();
-      this.buffer = this.buffer.subarray(bodyStart + len);
-
-      try {
-        const msg = JSON.parse(body);
-        await this._handler?.(msg);
-      } catch (e) {
-        process.stderr.write(`[ralph-mcp] handler error: ${e.message}\n`);
-      }
-    }
-  }
-
-  send(msg) {
-    const body = JSON.stringify(msg);
-    const frame = `Content-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`;
-    try {
-      process.stdout.write(frame);
-    } catch {
-      // stdout closed
-    }
-  }
-}
 
 // --- MCP Tool Definitions ---
 
@@ -437,120 +379,34 @@ async function handleTool(name, args) {
 
 // --- MCP Server ---
 
-export function startMcpServer() {
-  const transport = new StdioTransport();
+export async function startMcpServer() {
+  const server = new Server(
+    { name: 'ralph', version: '1.0.0' },
+    { capabilities: { tools: { listChanged: false } } }
+  );
 
-  // Prevent stdout pollution from console.log in tool handlers
-  const originalError = console.error;
-  console.log = (...args) => originalError(...args);
-  console.warn = (...args) => originalError(...args);
-  console.info = (...args) => originalError(...args);
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: TOOLS,
+  }));
 
-  // Catch unhandled rejections to prevent server crash
-  process.on('unhandledRejection', (err) => {
-    process.stderr.write(`[ralph-mcp] unhandled rejection: ${err?.message || err}\n`);
-  });
-
-  transport.onMessage(async (msg) => {
-    // Notifications (no id) — never send a response
-    if (!msg.id && msg.id !== 0) {
-      return;
-    }
-
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const { name, arguments: args } = request.params;
     try {
-      if (msg.method === 'initialize') {
-        transport.send({
-          jsonrpc: '2.0',
-          id: msg.id,
-          result: {
-            protocolVersion: msg.params?.protocolVersion || '2024-11-05',
-            capabilities: {
-              tools: { listChanged: false },
-            },
-            serverInfo: { name: 'ralph', version: '1.0.0' },
-          },
-        });
-        return;
-      }
-
-      if (msg.method === 'ping') {
-        transport.send({ jsonrpc: '2.0', id: msg.id, result: {} });
-        return;
-      }
-
-      if (msg.method === 'tools/list') {
-        transport.send({
-          jsonrpc: '2.0',
-          id: msg.id,
-          result: {
-            tools: TOOLS.map((t) => ({
-              name: t.name,
-              description: t.description,
-              inputSchema: t.inputSchema,
-            })),
-          },
-        });
-        return;
-      }
-
-      if (msg.method === 'resources/list') {
-        transport.send({ jsonrpc: '2.0', id: msg.id, result: { resources: [] } });
-        return;
-      }
-
-      if (msg.method === 'resources/templates/list') {
-        transport.send({ jsonrpc: '2.0', id: msg.id, result: { resourceTemplates: [] } });
-        return;
-      }
-
-      if (msg.method === 'prompts/list') {
-        transport.send({ jsonrpc: '2.0', id: msg.id, result: { prompts: [] } });
-        return;
-      }
-
-      if (msg.method === 'tools/call') {
-        const toolName = msg.params?.name;
-        const toolArgs = msg.params?.arguments || {};
-
-        try {
-          const result = await handleTool(toolName, toolArgs);
-          transport.send({
-            jsonrpc: '2.0',
-            id: msg.id,
-            result: {
-              content: [{
-                type: 'text',
-                text: typeof result === 'string' ? result : JSON.stringify(result),
-              }],
-            },
-          });
-        } catch (e) {
-          transport.send({
-            jsonrpc: '2.0',
-            id: msg.id,
-            result: {
-              content: [{ type: 'text', text: `Error: ${e.message}` }],
-              isError: true,
-            },
-          });
-        }
-        return;
-      }
-
-      // Unknown method
-      transport.send({
-        jsonrpc: '2.0',
-        id: msg.id,
-        error: { code: -32601, message: `Method not found: ${msg.method}` },
-      });
+      const result = await handleTool(name, args || {});
+      return {
+        content: [{
+          type: 'text',
+          text: typeof result === 'string' ? result : JSON.stringify(result),
+        }],
+      };
     } catch (e) {
-      transport.send({
-        jsonrpc: '2.0',
-        id: msg.id,
-        error: { code: -32603, message: `Internal error: ${e.message}` },
-      });
+      return {
+        content: [{ type: 'text', text: `Error: ${e.message}` }],
+        isError: true,
+      };
     }
   });
 
-  transport.start();
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
 }

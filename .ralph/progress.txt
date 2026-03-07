@@ -15,3 +15,15 @@ Started: 2026-03-07T15:48:58.002Z
 - Files: src/core/openrouter.js (new), src/core/openrouter.test.js (new)
 - Learnings: mock.fn() + mock.mockImplementationOnce() works well for mocking globalThis.fetch in node:test; set globalThis.fetch BEFORE dynamic import of module under test; cache pattern: existsSync + readFileSync + JSON.parse with fallthrough on error
 ---
+
+## 2026-03-07 - US-003
+- Implemented: spawnOpenRouter() and runResearch() now instantiate Config(findPrdDir()) and call getOpenRouterKey() to resolve API key from config.json first, falling back to OPENROUTER_API_KEY env var
+- Files: src/core/runner.js (modified), src/core/runner.test.js (new)
+- Learnings: runner.js imports are ESM with .js extensions; findPrdDir() from ../utils.js works with no args to resolve cwd-relative .ralph/; Config.getOpenRouterKey() already handles env var fallback so no extra logic needed in runner
+---
+
+## 2026-03-07 - US-004
+- Implemented: ralph_openrouter_config (get/set config with masked apiKey), ralph_openrouter_models (list enabled models), ralph_openrouter_fetch_models (fetch from API), ralph_openrouter_toggle_model (enable/disable model by id) in src/mcp/server.js
+- Files: src/mcp/server.js (modified)
+- Learnings: MCP tool handlers use try/catch via outer handleTool wrapper; dynamic import('../core/openrouter.js') works inside async switch cases; loadGlobalConfig/saveGlobalConfig pattern cleanly handles nested config upserts
+---

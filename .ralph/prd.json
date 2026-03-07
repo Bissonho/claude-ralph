@@ -65,7 +65,7 @@
         "Do NOT break existing env var behavior — it still works as fallback"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "tddType": "testable",
       "effort": "low",
       "model": "sonnet",
@@ -84,7 +84,7 @@
         "Add tools to the TOOLS array with proper inputSchema definitions"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "tddType": "frontend",
       "effort": "medium",
       "model": "sonnet",

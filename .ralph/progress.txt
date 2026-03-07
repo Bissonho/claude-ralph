@@ -86,6 +86,12 @@ Started: 2026-03-07T15:48:58.002Z
 - Learnings: ProgressViewProvider is a WebviewViewProvider (sidebar panel) not a WebviewPanel (editor tab) — resolveWebviewView() is the entry point; activity.jsonl JSONL format with {ts, type, storyId, ...data} events; terminal signals via sendText('\x03' for SIGINT, '\x1a' for SIGTSTP); FileSystemWatcher on activity.jsonl provides real-time refresh without polling; auto-scroll logic: check if near bottom before scrolling to avoid interrupting user scroll-up
 ---
 
+## 2026-03-08 - US-016
+- Implemented: GlobalRegistry class in src/core/registry.js with register(), deregister(), list(), prune() methods; registry stored at ~/.ralph/registry.json; list() and prune() filter stale PIDs via process.kill(pid,0); wired into run.js — register() after acquireLock(), deregister() in finally block
+- Files: src/core/registry.js (new), src/core/registry.test.js (new), src/commands/run.js (modified)
+- Learnings: process.env.RALPH_TEST_HOME pattern enables overriding homedir in tests without monkey-patching os.homedir; read-modify-write (read fresh in register/deregister) handles concurrent access; GlobalRegistry constructor accepts optional homeDir param for testability
+---
+
 ## 2026-03-08 - US-015
 - Implemented: elapsed/eta fields in StatusInfo interface (types.ts); parseStatus() updated to extract 'elapsed Xm' and 'eta ~Ym' from parts[5]/parts[6] of status.txt; CLI status.js shows elapsed+ETA line when loop is running; status-bar.ts appends elapsed to status bar text and adds elapsed+ETA to tooltip; progress-panel.ts adds timing-row card between progress bar and current story card with elapsed/ETA badges, hidden when not running or no timing data
 - Files: src/commands/status.js, vscode/src/ralph/types.ts, vscode/src/ralph/config.ts, vscode/src/views/status-bar.ts, vscode/src/views/progress-panel.ts

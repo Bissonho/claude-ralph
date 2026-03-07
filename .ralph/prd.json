@@ -357,7 +357,7 @@
         "Handle concurrent access gracefully (read fresh before write)"
       ],
       "priority": 16,
-      "passes": false,
+      "passes": true,
       "tddType": "testable",
       "effort": "low",
       "model": "sonnet",

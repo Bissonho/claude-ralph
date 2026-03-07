@@ -187,6 +187,42 @@ const TOOLS = [
       additionalProperties: false,
     },
   },
+  {
+    name: 'ralph_openrouter_config',
+    description: 'Get or set OpenRouter configuration (apiKey, defaultModel, researchModel). API key is masked in response (last 4 chars only).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        apiKey: { type: 'string', description: 'OpenRouter API key to set' },
+        defaultModel: { type: 'string', description: 'Default model ID to use' },
+        researchModel: { type: 'string', description: 'Research model ID to use' },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'ralph_openrouter_models',
+    description: 'List enabled models from config.json.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'ralph_openrouter_fetch_models',
+    description: 'Fetch available models from OpenRouter API. Requires apiKey in config or provided. Returns list with id, name, and pricing.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'ralph_openrouter_toggle_model',
+    description: 'Enable or disable a model by id in config.json.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Model ID to toggle' },
+        enabled: { type: 'boolean', description: 'true to enable, false to disable' },
+      },
+      required: ['id', 'enabled'],
+      additionalProperties: false,
+    },
+  },
 ];
 
 // --- Tool Handlers ---
@@ -370,6 +406,58 @@ async function handleTool(name, args) {
       };
       const result = config.createPrd(prdData);
       return { ok: true, ...result };
+    }
+
+    case 'ralph_openrouter_config': {
+      const config = getConfig();
+      const cfg = config.loadGlobalConfig();
+      const hasUpdates = args.apiKey !== undefined || args.defaultModel !== undefined || args.researchModel !== undefined;
+      if (hasUpdates) {
+        if (!cfg.openrouter) cfg.openrouter = {};
+        if (args.apiKey !== undefined) cfg.openrouter.apiKey = args.apiKey;
+        if (args.defaultModel !== undefined) cfg.openrouter.defaultModel = args.defaultModel;
+        if (args.researchModel !== undefined) cfg.openrouter.researchModel = args.researchModel;
+        config.saveGlobalConfig(cfg);
+      }
+      const or = cfg.openrouter || {};
+      const rawKey = or.apiKey || '';
+      const maskedKey = rawKey.length > 4 ? `****${rawKey.slice(-4)}` : (rawKey ? '****' : null);
+      return {
+        apiKey: maskedKey,
+        defaultModel: or.defaultModel || null,
+        researchModel: or.researchModel || null,
+      };
+    }
+
+    case 'ralph_openrouter_models': {
+      const config = getConfig();
+      return config.getEnabledModels();
+    }
+
+    case 'ralph_openrouter_fetch_models': {
+      const config = getConfig();
+      const apiKey = config.getOpenRouterKey();
+      if (!apiKey) {
+        return { ok: false, message: 'No API key. Set one with ralph_openrouter_config.' };
+      }
+      const { fetchAvailableModels } = await import('../core/openrouter.js');
+      const models = await fetchAvailableModels(apiKey);
+      return models.map((m) => ({ id: m.id, name: m.name, pricing: m.pricing }));
+    }
+
+    case 'ralph_openrouter_toggle_model': {
+      const config = getConfig();
+      const cfg = config.loadGlobalConfig();
+      if (!cfg.openrouter) cfg.openrouter = {};
+      if (!cfg.openrouter.models) cfg.openrouter.models = [];
+      const existing = cfg.openrouter.models.find((m) => m.id === args.id);
+      if (existing) {
+        existing.enabled = args.enabled;
+      } else {
+        cfg.openrouter.models.push({ id: args.id, enabled: args.enabled });
+      }
+      config.saveGlobalConfig(cfg);
+      return { ok: true, id: args.id, enabled: args.enabled };
     }
 
     default:

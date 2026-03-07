@@ -4,6 +4,7 @@ import { RalphWatcher } from './ralph/watcher';
 import { StoriesTreeProvider, StoryItem } from './views/stories-tree';
 import { ProgressViewProvider } from './views/progress-panel';
 import { DashboardPanel } from './views/dashboard-panel';
+import { OpenRouterPanel } from './views/openrouter-panel';
 import { RalphStatusBar } from './views/status-bar';
 import { startLoop, stopLoop, setConfig as setLoopConfig } from './commands/loop';
 import { addStory, markStoryDone, markStoryPending, removeStory, editStory, showStoryDetail } from './commands/stories';
@@ -120,6 +121,9 @@ export function activate(context: vscode.ExtensionContext): void {
       const terminal = vscode.window.createTerminal({ name: 'Ralph Init' });
       terminal.show();
       terminal.sendText('ralph init');
+    }),
+    vscode.commands.registerCommand('ralph.openRouterSettings', () => {
+      OpenRouterPanel.show(context.extensionUri, config);
     }),
   );
 

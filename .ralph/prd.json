@@ -169,7 +169,7 @@
         "Use VS Code theme variables for styling (--vscode-* CSS vars)"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "tddType": "frontend",
       "effort": "high",
       "model": "opus",

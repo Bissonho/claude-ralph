@@ -44,3 +44,8 @@ Started: 2026-03-07T15:48:58.002Z
 - Files: src/mcp/server.js (modified)
 - Learnings: WorktreeManager imported via dynamic import('../core/worktree.js') inside async case handlers; ralph_worktree_create_prd reuses the same prdData shape as ralph_create_prd but targets a worktree's Config via wm.getConfig(name); all 7 tools follow the try/catch handleTool pattern with compact JSON responses
 ---
+## 2026-03-07 - US-008
+- Implemented: OpenRouterPanel singleton webview in vscode/src/views/openrouter-panel.ts with API key input (password toggle), validate/save buttons, fetch models from OpenRouter API, model list with enable/disable checkboxes, default/research model dropdowns; added loadGlobalConfig()/saveGlobalConfig() to RalphConfig and GlobalConfig/OpenRouterConfig/OpenRouterModel interfaces to types.ts; registered ralph.openRouterSettings command in extension.ts and package.json with settings-gear button in Stories view title bar
+- Files: vscode/src/views/openrouter-panel.ts (new), vscode/src/ralph/config.ts (modified), vscode/src/ralph/types.ts (modified), vscode/src/extension.ts (modified), vscode/package.json (modified), .ralph/prd.json (modified)
+- Learnings: DashboardPanel singleton pattern: static show() checks instance, static instance field, private constructor, onDidDispose clears instance; webview communicates with extension via postMessage/onDidReceiveMessage; VS Code theme variables (--vscode-*) ensure consistent styling; panel reads/writes config.json via RalphConfig.loadGlobalConfig()/saveGlobalConfig()
+---

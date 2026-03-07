@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { PrdData, Progress, StatusInfo, UserStory } from './types';
+import { PrdData, Progress, StatusInfo, UserStory, GlobalConfig } from './types';
 
 export class RalphConfig {
   readonly prdDir: string;
@@ -8,6 +8,7 @@ export class RalphConfig {
   readonly statusFile: string;
   readonly progressFile: string;
   readonly lockFile: string;
+  readonly configFile: string;
 
   constructor(prdDir: string) {
     this.prdDir = prdDir;
@@ -15,6 +16,7 @@ export class RalphConfig {
     this.statusFile = path.join(prdDir, 'status.txt');
     this.progressFile = path.join(prdDir, 'progress.txt');
     this.lockFile = path.join(prdDir, '.lock');
+    this.configFile = path.join(prdDir, 'config.json');
   }
 
   exists(): boolean {
@@ -229,6 +231,22 @@ export class RalphConfig {
     );
 
     return { archivedTo: archiveFolder, project: data.project };
+  }
+
+  loadGlobalConfig(): GlobalConfig {
+    try {
+      if (fs.existsSync(this.configFile)) {
+        const raw = fs.readFileSync(this.configFile, 'utf-8');
+        return JSON.parse(raw) as GlobalConfig;
+      }
+    } catch {
+      // ignore parse errors
+    }
+    return {};
+  }
+
+  saveGlobalConfig(data: GlobalConfig): void {
+    fs.writeFileSync(this.configFile, JSON.stringify(data, null, 2) + '\n');
   }
 
   private parseStatus(raw: string): StatusInfo {

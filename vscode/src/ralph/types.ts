@@ -45,3 +45,19 @@ export interface StatusInfo {
   time: string;
   raw: string;
 }
+
+export interface OpenRouterModel {
+  id: string;
+  enabled: boolean;
+}
+
+export interface OpenRouterConfig {
+  apiKey?: string;
+  defaultModel?: string;
+  researchModel?: string;
+  models?: OpenRouterModel[];
+}
+
+export interface GlobalConfig {
+  openrouter?: OpenRouterConfig;
+}

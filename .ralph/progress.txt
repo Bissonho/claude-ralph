@@ -1,111 +1,17 @@
 # Ralph Progress Log
-Started: 2026-03-07T15:48:58.002Z
+Started: 2026-03-07T16:49:21.580Z
+---
+
+## 2026-03-08 - SUM-001
+- Implemented: Simple sum function that adds two integers
+- Files: src/test-sums/sum01.js, src/test-sums/sum01.test.js
+- Learnings: ESM imports with .js extensions, Node.js test runner with node:test module, TDD approach with failing tests first
+---
+
+## 2026-03-08 - SUM-002
+- Implemented: Array summing function using reduce to sum all elements
+- Files: src/test-sums/sum02.js, src/test-sums/sum02.test.js
+- Learnings: Array.reduce() pattern for aggregations, handle edge cases (empty arrays return 0), all 3 acceptance criteria pass
 ---
 
 ## Codebase Patterns
-
-## 2026-03-07 - US-001
-- Implemented: configFile property, loadGlobalConfig(), saveGlobalConfig(), getOpenRouterKey(), getEnabledModels() in Config class; .ralph/.gitignore with config.json and .openrouter-models-cache.json
-- Files: src/core/config.js, src/core/config.test.js, .ralph/.gitignore
-- Learnings: Config class uses existsSync + readFileSync pattern consistently; optional chaining (?.) works well for nested config access with fallbacks; TDD with node:test requires no async in before() for sync setup
----
-
-## 2026-03-07 - US-002
-- Implemented: validateApiKey(), fetchAvailableModels(), fetchModelsWithCache() in src/core/openrouter.js using Node.js built-in fetch; cache TTL 1h with JSON cache file
-- Files: src/core/openrouter.js (new), src/core/openrouter.test.js (new)
-- Learnings: mock.fn() + mock.mockImplementationOnce() works well for mocking globalThis.fetch in node:test; set globalThis.fetch BEFORE dynamic import of module under test; cache pattern: existsSync + readFileSync + JSON.parse with fallthrough on error
----
-
-## 2026-03-07 - US-003
-- Implemented: spawnOpenRouter() and runResearch() now instantiate Config(findPrdDir()) and call getOpenRouterKey() to resolve API key from config.json first, falling back to OPENROUTER_API_KEY env var
-- Files: src/core/runner.js (modified), src/core/runner.test.js (new)
-- Learnings: runner.js imports are ESM with .js extensions; findPrdDir() from ../utils.js works with no args to resolve cwd-relative .ralph/; Config.getOpenRouterKey() already handles env var fallback so no extra logic needed in runner
----
-
-## 2026-03-07 - US-004
-- Implemented: ralph_openrouter_config (get/set config with masked apiKey), ralph_openrouter_models (list enabled models), ralph_openrouter_fetch_models (fetch from API), ralph_openrouter_toggle_model (enable/disable model by id) in src/mcp/server.js
-- Files: src/mcp/server.js (modified)
-- Learnings: MCP tool handlers use try/catch via outer handleTool wrapper; dynamic import('../core/openrouter.js') works inside async switch cases; loadGlobalConfig/saveGlobalConfig pattern cleanly handles nested config upserts
----
-
-## 2026-03-07 - US-005
-- Implemented: WorktreeManager class with create/remove/list/getConfig/startRun/startAll/merge/ensureGitignore methods; registry CRUD via .ralph/worktrees.json; live status detection from lock/status files; pattern copying to worktree .ralph/
-- Files: src/core/worktree.js (new), src/core/worktree.test.js (new)
-- Learnings: Mockable internal methods (_exec, _spawn, _isProcessRunning) enable testing git/process operations without real git worktrees; Config class reuse for worktree .ralph/ dirs works cleanly; dirname(prdDir) reliably derives projectRoot from .ralph/ path
----
-
-## 2026-03-08 - US-006
-- Implemented: worktreeCommand(args) in src/commands/worktree.js with subcommands: create, remove/rm, list/ls, status, run, run-all, merge; integrated into src/cli.js with 'worktree' case and HELP text update
-- Files: src/commands/worktree.js (new), src/cli.js (modified)
-- Learnings: ESM-only project — no require() allowed, use top-level import { join } from 'path'; WorktreeManager.list() provides status info for display; printWorktreeStatus() wraps Config per worktree to show PRD progress bar; run-all output uses printRunAllStatus() for consolidated view
----
-## 2026-03-08 - US-007
-- Implemented: ralph_worktree_create, ralph_worktree_remove, ralph_worktree_list, ralph_worktree_run, ralph_worktree_run_all, ralph_worktree_create_prd, ralph_worktree_merge tools in src/mcp/server.js
-- Files: src/mcp/server.js (modified)
-- Learnings: WorktreeManager imported via dynamic import('../core/worktree.js') inside async case handlers; ralph_worktree_create_prd reuses the same prdData shape as ralph_create_prd but targets a worktree's Config via wm.getConfig(name); all 7 tools follow the try/catch handleTool pattern with compact JSON responses
----
-## 2026-03-08 - US-009
-- Implemented: Updated addStory() in vscode/src/commands/stories.ts to load enabled OpenRouter models from config.json via loadGlobalConfig(); QuickPick shows built-in models (sonnet/opus/haiku) with "Anthropic (built-in)" description plus enabled OpenRouter models with "OpenRouter" description; OpenRouter model selections are stored with 'openrouter:' prefix in story.model; StoryItem description already showed model name (no change needed); types.ts and config.ts already had OpenRouterConfig and loadGlobalConfig() from US-008
-- Files: vscode/src/commands/stories.ts (modified)
-- Learnings: QuickPick items can be extended with custom fields using intersection types (vscode.QuickPickItem & { modelValue: string }); loadGlobalConfig() was already available on RalphConfig from US-008; stories-tree.ts StoryItem.description already included model name at line 27 — no additional changes needed for model badges
----
-
-## 2026-03-07 - US-008
-- Implemented: OpenRouterPanel singleton webview in vscode/src/views/openrouter-panel.ts with API key input (password toggle), validate/save buttons, fetch models from OpenRouter API, model list with enable/disable checkboxes, default/research model dropdowns; added loadGlobalConfig()/saveGlobalConfig() to RalphConfig and GlobalConfig/OpenRouterConfig/OpenRouterModel interfaces to types.ts; registered ralph.openRouterSettings command in extension.ts and package.json with settings-gear button in Stories view title bar
-- Files: vscode/src/views/openrouter-panel.ts (new), vscode/src/ralph/config.ts (modified), vscode/src/ralph/types.ts (modified), vscode/src/extension.ts (modified), vscode/package.json (modified), .ralph/prd.json (modified)
-- Learnings: DashboardPanel singleton pattern: static show() checks instance, static instance field, private constructor, onDidDispose clears instance; webview communicates with extension via postMessage/onDidReceiveMessage; VS Code theme variables (--vscode-*) ensure consistent styling; panel reads/writes config.json via RalphConfig.loadGlobalConfig()/saveGlobalConfig()
----
-
-## 2026-03-08 - US-011
-- Implemented: ActivityLogger class in src/core/activity.js with emit(), startStoryLog(), appendStoryLog(), readStoryLog(), readActivity(), clear(); creates .ralph/logs/ dir on construction; JSONL format with { ts, type, ...data }; added activity.jsonl and logs/ to .ralph/.gitignore
-- Files: src/core/activity.js (new), src/core/activity.test.js (new), .ralph/.gitignore (modified)
-- Learnings: createWriteStream with flags:'w' cleanly truncates on startStoryLog; appendFileSync is sync and works well wrapped in a Promise for appendStoryLog; split('\n').filter(Boolean) handles trailing newlines in JSONL reading; all 10 tests pass, 64 total
----
-
-## 2026-03-08 - US-012
-- Implemented: ActivityLogger wired into run.js (loop_start, story_start, agent_spawn, agent_done, story_done, loop_end events); onData callback added to spawnProcess/spawnAgent for real-time log capture; agent output saved to .ralph/logs/<storyId>.log via logStream; readAndClearFeedback() helper reads .ralph/.feedback, prepends as '## User Feedback' in prompt, then deletes file; .feedback added to .ralph/.gitignore
-- Files: src/commands/run.js (modified), src/commands/run.test.js (modified), src/core/runner.js (modified), src/core/runner.test.js (modified), .ralph/.gitignore (modified)
-- Learnings: spawnProcess onData pattern keeps existing stderr tee intact while adding per-chunk callback; logStream from startStoryLog() is closed with await new Promise(resolve => logStream.end(resolve)) after agent finishes; story_done only emitted when refreshedStory.passes is true after agent run; feedback file deleted with unlinkSync to fully clear it; dynamic import for runResearch avoids circular dependency concerns
----
-
-## 2026-03-07 - US-010
-- Implemented: WorktreesTreeProvider (TreeDataProvider) in vscode/src/views/worktrees-tree.ts showing worktrees with name, branch, status icon (idle/running/complete), progress percentage; context menus for Start/Stop/Merge/Open Folder/Remove; header Create Worktree button with multi-step input (name, branch); registered ralph.worktrees view in package.json; added loadWorktrees() and enrichWorktreeEntry() to RalphConfig; WorktreeEntry/WorktreeInfo interfaces in types.ts; worktrees.json FileSystemWatcher + poll-based auto-refresh; 6 worktree commands wired in extension.ts
-- Files: vscode/src/views/worktrees-tree.ts (new), vscode/src/ralph/types.ts (modified), vscode/src/ralph/config.ts (modified), vscode/package.json (modified), vscode/src/extension.ts (modified)
-- Learnings: WorktreesTreeProvider follows same pattern as StoriesTreeProvider (EventEmitter, refresh(), updateConfig()); enrichWorktreeEntry reads each worktree's .ralph/status.txt and .ralph/prd.json for live status and progress; worktree commands delegate to ralph CLI via terminal.sendText() matching the loop start/stop pattern; process.kill(pid, 0) throws if process doesn't exist — catch to detect not-running
----
-
-## 2026-03-08 - US-014
-- Implemented: calculateEta(data, loopStartedAt) in src/utils.js; groups completed story durationMs by 'effort/model' category, calculates averages, uses fallback defaults (low/sonnet=2m..high/opus=20m) for unknown categories; returns { elapsedMs, etaMs, etaFormatted, avgPerCategory }. In run.js: loopStartedAt tracked at loop entry, startedAt written via config.updateStory() before agent spawn, completedAt+durationMs written after; formatStatus() extended with '| elapsed Xm | eta ~Ym' appended when loopStartedAt provided.
-- Files: src/utils.js (calculateEta added), src/utils.test.js (new, 9 tests), src/commands/run.js (timing + formatStatus update)
-- Learnings: ETA_DEFAULTS constant map keyed by 'effort/model' string is clean and extensible; openrouter: prefix stripped to 'sonnet' for category grouping since effort matters more than specific model; formatStatus loopStartedAt optional param keeps backward compat for callers that don't pass it
----
-
-## 2026-03-07 - US-013
-- Implemented: Replaced progress-panel.ts with Live Activity Panel webview: current story card (id, title, model, effort, iteration, elapsed time), scrollable activity log reading activity.jsonl with auto-scroll and color-coded event icons (story_start, agent_spawn, agent_done, quality_check, story_done, feedback_received, loop_start, loop_end), feedback text input writing to .ralph/.feedback, control buttons (Pause SIGTSTP, Skip Story, Stop Loop SIGINT), completed stories history with duration and View Log button opening .ralph/logs/<storyId>.log; added pauseLoop() and skipStory() to loop.ts; registered ralph.pauseLoop, ralph.skipStory, ralph.openStoryLog commands in extension.ts and package.json; FileSystemWatcher on activity.jsonl for auto-refresh
-- Files: vscode/src/views/progress-panel.ts (rewritten), vscode/src/extension.ts (modified), vscode/src/commands/loop.ts (modified), vscode/package.json (modified)
-- Learnings: ProgressViewProvider is a WebviewViewProvider (sidebar panel) not a WebviewPanel (editor tab) — resolveWebviewView() is the entry point; activity.jsonl JSONL format with {ts, type, storyId, ...data} events; terminal signals via sendText('\x03' for SIGINT, '\x1a' for SIGTSTP); FileSystemWatcher on activity.jsonl provides real-time refresh without polling; auto-scroll logic: check if near bottom before scrolling to avoid interrupting user scroll-up
----
-
-## 2026-03-08 - US-016
-- Implemented: GlobalRegistry class in src/core/registry.js with register(), deregister(), list(), prune() methods; registry stored at ~/.ralph/registry.json; list() and prune() filter stale PIDs via process.kill(pid,0); wired into run.js — register() after acquireLock(), deregister() in finally block
-- Files: src/core/registry.js (new), src/core/registry.test.js (new), src/commands/run.js (modified)
-- Learnings: process.env.RALPH_TEST_HOME pattern enables overriding homedir in tests without monkey-patching os.homedir; read-modify-write (read fresh in register/deregister) handles concurrent access; GlobalRegistry constructor accepts optional homeDir param for testability
----
-
-## 2026-03-08 - US-018
-- Implemented: HubPanel singleton class in vscode/src/views/hub-panel.ts; checks http://localhost:3742/api/status on open, shows start prompt if hub not running, loads and patches hub HTML for webview rendering; postMessage bridge forwards feedback/control actions to hub API; poll-based auto-reconnect (every 3s) detects hub start/stop and shows VS Code notifications on loop complete/fail; registered ralph.showHub command in extension.ts; added Hub button ($(server)) to Stories view title bar at navigation@6; vscode.env.openExternal fallback in fallback UI
-- Files: vscode/src/views/hub-panel.ts (new), vscode/src/extension.ts (modified), vscode/package.json (modified)
-- Learnings: AbortSignal.timeout() is available in Node 18+ / VS Code webview context for fetch timeouts; TypeScript requires `as Type` cast for `res.json()` (returns `unknown`); patchHubHtml() regex rewrites relative /path URLs to absolute hub URLs — essential since webview cannot reach relative paths; HubPanel.show() takes only extensionUri (no config needed — hub is project-agnostic)
----
-
-## 2026-03-08 - US-015
-- Implemented: elapsed/eta fields in StatusInfo interface (types.ts); parseStatus() updated to extract 'elapsed Xm' and 'eta ~Ym' from parts[5]/parts[6] of status.txt; CLI status.js shows elapsed+ETA line when loop is running; status-bar.ts appends elapsed to status bar text and adds elapsed+ETA to tooltip; progress-panel.ts adds timing-row card between progress bar and current story card with elapsed/ETA badges, hidden when not running or no timing data
-- Files: src/commands/status.js, vscode/src/ralph/types.ts, vscode/src/ralph/config.ts, vscode/src/views/status-bar.ts, vscode/src/views/progress-panel.ts
-- Learnings: parseStatus() split-by-pipe pattern extends cleanly — parts[5]/parts[6] handle optional fields without breaking existing callers; TypeScript optional fields (elapsed?: string) avoid null checks in display code; VS Code webview conditional rendering with template literals keeps timing section hidden when no data
----
-
-## 2026-03-07 - US-017
-- Implemented: src/hub/server.js with startHub(opts) — HTTP server on port 3742 serving unified dashboard for all active Ralph loops; GET / serves self-contained dark-themed HTML with per-project cards (progress bar, current story, elapsed/eta, stories list, control buttons, feedback input); GET /events SSE stream polling registry every 2s; GET /api/status JSON array of all loops; GET /api/logs/:project/:storyId returns log file content; POST /api/feedback writes to target project .ralph/.feedback; POST /api/control sends SIGINT/SIGTSTP/SIGCONT/SIGUSR1 signals to loop PID; optional auth via RALPH_HUB_TOKEN env var with Bearer token; added 'hub' command to src/cli.js with --port and --token options
-- Files: src/hub/server.js (new), src/cli.js (modified)
-- Learnings: GlobalRegistry.list() returns live entries with PID filtering — ideal for hub polling; dashboard pattern from dashboard/server.js (inline HTML template, SSE, createServer) scales well to multi-project; escapeHtml in client-side JS prevents XSS from project names; CORS headers needed for cross-origin webview access; readBody helper with Promise wraps req.on('data'/'end') for async POST handling
----

@@ -1,423 +1,349 @@
 {
-  "project": "ralph-cli",
-  "branchName": "ralph/multi-prd-openrouter",
-  "description": "Add multi-PRD parallel execution via git worktrees and OpenRouter configuration panel in VS Code extension",
+  "project": "ralph-sum-tests",
+  "branchName": "ralph/sum-tests",
+  "description": "Stress test: 20 small tasks creating sum utility functions to validate the Ralph loop speed and reliability",
   "qualityChecks": [
     {
       "name": "syntax",
-      "command": "node --check src/core/openrouter.js src/core/worktree.js src/commands/worktree.js src/mcp/server.js src/cli.js src/core/config.js src/core/runner.js 2>&1 || true"
+      "command": "node --check src/test-sums/*.js 2>&1 || true"
     },
     {
       "name": "test",
-      "command": "node --test src/**/*.test.js 2>&1 || true"
+      "command": "node --test src/test-sums/*.test.js 2>&1 || true"
     }
   ],
   "userStories": [
     {
-      "id": "US-001",
-      "title": "OpenRouter config module in Config class",
-      "description": "Extend src/core/config.js with methods to manage .ralph/config.json — a gitignored file that stores OpenRouter API key and enabled models. This is the foundation for all OpenRouter features.",
+      "id": "SUM-001",
+      "title": "Sum of two integers",
+      "description": "Create src/test-sums/sum01.js exporting sum(a,b) that returns a+b. Create src/test-sums/sum01.test.js with 3 test cases.",
       "acceptanceCriteria": [
-        "Add configFile property to Config constructor pointing to join(prdDir, 'config.json')",
-        "Add loadGlobalConfig() that reads and parses config.json, returns {} if missing",
-        "Add saveGlobalConfig(data) that writes config.json with 2-space indentation",
-        "Add getOpenRouterKey() that returns key from config.json, falls back to process.env.OPENROUTER_API_KEY",
-        "Add getEnabledModels() that returns array of enabled model objects from config.json",
-        "Add .ralph/.gitignore entry for config.json and .openrouter-models-cache.json",
-        "config.json schema: { openrouter: { apiKey, defaultModel, researchModel, models: [{ id, enabled }] } }"
+        "sum(2,3) returns 5",
+        "sum(-1,1) returns 0",
+        "sum(0,0) returns 0"
       ],
       "priority": 1,
       "passes": true,
       "tddType": "testable",
       "effort": "low",
-      "model": "sonnet",
-      "notes": "Only modify src/core/config.js and .ralph/.gitignore. Do NOT add npm dependencies."
+      "model": "haiku",
+      "notes": "",
+      "startedAt": "2026-03-07T16:49:21.581Z",
+      "completedAt": "2026-03-07T16:50:09.569Z",
+      "durationMs": 47988
     },
     {
-      "id": "US-002",
-      "title": "OpenRouter API client module",
-      "description": "Create src/core/openrouter.js with functions to validate API keys, fetch available models from OpenRouter API, and cache results locally.",
+      "id": "SUM-002",
+      "title": "Sum of array elements",
+      "description": "Create src/test-sums/sum02.js exporting sumArray(arr) that returns sum of all elements. Create test file with 3 cases.",
       "acceptanceCriteria": [
-        "Create src/core/openrouter.js as ESM module",
-        "validateApiKey(apiKey) — test key with GET /models, return boolean",
-        "fetchAvailableModels(apiKey) — GET https://openrouter.ai/api/v1/models, return array of {id, name, contextLength, pricing}",
-        "fetchModelsWithCache(apiKey, cacheFile) — read cache from cacheFile if < 1h old, otherwise fetch and write cache",
-        "All functions use Node.js built-in fetch (no npm deps)",
-        "Sort models by id alphabetically"
+        "sumArray([1,2,3]) returns 6",
+        "sumArray([]) returns 0",
+        "sumArray([-1,5,3]) returns 7"
       ],
       "priority": 2,
       "passes": true,
       "tddType": "testable",
       "effort": "low",
-      "model": "sonnet",
-      "notes": "Zero dependencies. Use Node.js 18+ built-in fetch. Cache file is .ralph/.openrouter-models-cache.json."
+      "model": "haiku",
+      "notes": "",
+      "startedAt": "2026-03-07T16:50:11.574Z",
+      "completedAt": "2026-03-07T16:51:12.530Z",
+      "durationMs": 60954
     },
     {
-      "id": "US-003",
-      "title": "Update runner to read API key from config.json",
-      "description": "Modify src/core/runner.js so spawnOpenRouter() and runResearch() read the API key from config.json first (via Config), falling back to OPENROUTER_API_KEY env var.",
+      "id": "SUM-003",
+      "title": "Sum of even numbers in array",
+      "description": "Create src/test-sums/sum03.js exporting sumEvens(arr). Create test file.",
       "acceptanceCriteria": [
-        "spawnOpenRouter() calls getOpenRouterKey() from a Config instance to get API key",
-        "runResearch() calls getOpenRouterKey() from a Config instance to get API key",
-        "If config.json has apiKey, use it even if env var is not set",
-        "If neither config.json nor env var has key, fall back to Claude Sonnet with warning",
-        "Import Config and findPrdDir from the correct modules",
-        "Do NOT break existing env var behavior — it still works as fallback"
+        "sumEvens([1,2,3,4]) returns 6",
+        "sumEvens([1,3,5]) returns 0",
+        "sumEvens([2,4,6]) returns 12"
       ],
       "priority": 3,
       "passes": true,
       "tddType": "testable",
       "effort": "low",
-      "model": "sonnet",
-      "notes": "Modify src/core/runner.js only. The runner needs to instantiate Config to read the key. Import findPrdDir from ../utils.js."
+      "model": "haiku",
+      "notes": "",
+      "startedAt": "2026-03-07T16:51:14.533Z",
+      "completedAt": "2026-03-07T16:52:21.128Z",
+      "durationMs": 66594
     },
     {
-      "id": "US-004",
-      "title": "MCP tools for OpenRouter configuration",
-      "description": "Add MCP tools to src/mcp/server.js for managing OpenRouter settings: get/set config, list enabled models, fetch available models from API, toggle model enabled state.",
+      "id": "SUM-004",
+      "title": "Sum of odd numbers in array",
+      "description": "Create src/test-sums/sum04.js exporting sumOdds(arr). Create test file.",
       "acceptanceCriteria": [
-        "Add ralph_openrouter_config tool — get or set OpenRouter config (apiKey masked in response, defaultModel, researchModel)",
-        "Add ralph_openrouter_models tool — list enabled models from config.json",
-        "Add ralph_openrouter_fetch_models tool — fetch models from OpenRouter API (requires apiKey), returns list with id/name/pricing",
-        "Add ralph_openrouter_toggle_model tool — enable/disable a model by id in config.json",
-        "All tools follow existing patterns: compact JSON responses, error handling with try/catch",
-        "Add tools to the TOOLS array with proper inputSchema definitions"
+        "sumOdds([1,2,3,4]) returns 4",
+        "sumOdds([2,4,6]) returns 0",
+        "sumOdds([1,3,5]) returns 9"
       ],
       "priority": 4,
       "passes": true,
-      "tddType": "frontend",
-      "effort": "medium",
-      "model": "sonnet",
-      "notes": "Modify src/mcp/server.js only. Follow the exact same patterns as existing tools. Mask API key in responses (show only last 4 chars)."
+      "tddType": "testable",
+      "effort": "low",
+      "model": "haiku",
+      "notes": "",
+      "startedAt": "2026-03-07T17:00:55.759Z",
+      "completedAt": "2026-03-07T16:52:24.540Z",
+      "durationMs": 1409
     },
     {
-      "id": "US-005",
-      "title": "Git worktree core module",
-      "description": "Create src/core/worktree.js with a WorktreeManager class that handles creating, removing, listing git worktrees. Each worktree gets its own .ralph/ directory with isolated PRD state.",
+      "id": "SUM-005",
+      "title": "Running sum of array",
+      "description": "Create src/test-sums/sum05.js exporting runningSum(arr) returning cumulative sum array. Create test file.",
       "acceptanceCriteria": [
-        "Create src/core/worktree.js with WorktreeManager class",
-        "Constructor takes prdDir, derives projectRoot and worktreesDir (.ralph-worktrees/)",
-        "loadRegistry()/saveRegistry() — CRUD for .ralph/worktrees.json",
-        "create(name, branch) — git worktree add, init .ralph/ in worktree, copy codebase patterns, register",
-        "remove(name) — check not running, git worktree remove, deregister",
-        "list() — return enriched worktree entries with live status (idle/running/complete) from lock/status files",
-        "getConfig(name) — return Config instance pointing to worktree .ralph/",
-        "startRun(name, maxIterations, tool) — spawn ralph run detached in worktree dir",
-        "startAll(maxIterations, tool) — start all pending worktrees in parallel",
-        "merge(name) — verify complete, git merge branch, remove worktree",
-        "Ensure .ralph-worktrees/ is added to project .gitignore"
+        "runningSum([1,2,3]) returns [1,3,6]",
+        "runningSum([5]) returns [5]",
+        "runningSum([]) returns []"
       ],
       "priority": 5,
-      "passes": true,
+      "passes": false,
       "tddType": "testable",
-      "effort": "medium",
-      "model": "opus",
-      "notes": "Zero dependencies. Use child_process.execSync for git commands, spawn for ralph run. The worktree dir is .ralph-worktrees/ at project root (not inside .ralph/)."
+      "effort": "low",
+      "model": "haiku",
+      "notes": ""
     },
     {
-      "id": "US-006",
-      "title": "CLI command: ralph worktree",
-      "description": "Create src/commands/worktree.js with subcommands and integrate into src/cli.js router.",
+      "id": "SUM-006",
+      "title": "Sum of digits of a number",
+      "description": "Create src/test-sums/sum06.js exporting sumDigits(n). Create test file.",
       "acceptanceCriteria": [
-        "Create src/commands/worktree.js with worktreeCommand(args) function",
-        "Subcommands: create <name> --branch <branch>, remove <name>, list, status, run <name> [--max-iterations N], run-all [--max-iterations N], merge <name>",
-        "Integrate in src/cli.js: add 'worktree' case to switch, add parseWorktreeArgs function",
-        "Add worktree to HELP text in cli.js",
-        "list/status output uses ANSI colors and progress bars from utils.js",
-        "run-all shows a consolidated status of all parallel loops"
+        "sumDigits(123) returns 6",
+        "sumDigits(0) returns 0",
+        "sumDigits(9999) returns 36"
       ],
       "priority": 6,
-      "passes": true,
-      "tddType": "frontend",
-      "effort": "medium",
-      "model": "sonnet",
-      "notes": "Modify src/cli.js and create src/commands/worktree.js. Use WorktreeManager from src/core/worktree.js. Follow existing CLI patterns."
+      "passes": false,
+      "tddType": "testable",
+      "effort": "low",
+      "model": "haiku",
+      "notes": ""
     },
     {
-      "id": "US-007",
-      "title": "MCP tools for worktree management",
-      "description": "Add MCP tools to src/mcp/server.js for creating, listing, running, and managing worktrees via Claude Code.",
+      "id": "SUM-007",
+      "title": "Sum of matrix (2D array)",
+      "description": "Create src/test-sums/sum07.js exporting sumMatrix(matrix). Create test file.",
       "acceptanceCriteria": [
-        "Add ralph_worktree_create tool — create worktree with name and branch",
-        "Add ralph_worktree_remove tool — remove worktree by name",
-        "Add ralph_worktree_list tool — list all worktrees with status and progress",
-        "Add ralph_worktree_run tool — start ralph run in a specific worktree",
-        "Add ralph_worktree_run_all tool — start all pending worktrees in parallel",
-        "Add ralph_worktree_create_prd tool — create prd.json inside a worktree",
-        "Add ralph_worktree_merge tool — merge completed worktree branch",
-        "All tools follow existing MCP patterns with compact JSON responses"
+        "sumMatrix([[1,2],[3,4]]) returns 10",
+        "sumMatrix([[0]]) returns 0",
+        "sumMatrix([]) returns 0"
       ],
       "priority": 7,
-      "passes": true,
-      "tddType": "frontend",
-      "effort": "medium",
-      "model": "sonnet",
-      "notes": "Modify src/mcp/server.js only. Import WorktreeManager from ../core/worktree.js. Follow the exact same tool definition patterns."
+      "passes": false,
+      "tddType": "testable",
+      "effort": "low",
+      "model": "haiku",
+      "notes": ""
     },
     {
-      "id": "US-008",
-      "title": "VS Code: OpenRouter settings panel",
-      "description": "Create a webview panel in the VS Code extension for configuring OpenRouter API key and selecting available models.",
+      "id": "SUM-008",
+      "title": "Sum of first N natural numbers",
+      "description": "Create src/test-sums/sum08.js exporting sumNatural(n) using formula n*(n+1)/2. Create test file.",
       "acceptanceCriteria": [
-        "Create vscode/src/views/openrouter-panel.ts as a WebviewPanel (singleton pattern like DashboardPanel)",
-        "Section 1: API key input (password type with show/hide toggle), Validate button, Save button",
-        "Section 2: Fetch Models button that queries OpenRouter API, model list with checkboxes to enable/disable",
-        "Dropdown for default model and research model selection",
-        "Register command ralph.openRouterSettings in extension.ts and vscode/package.json",
-        "Add button in Stories view title bar to open the panel",
-        "Panel reads/writes .ralph/config.json through RalphConfig",
-        "Use VS Code theme variables for styling (--vscode-* CSS vars)"
+        "sumNatural(10) returns 55",
+        "sumNatural(1) returns 1",
+        "sumNatural(0) returns 0"
       ],
       "priority": 8,
-      "passes": true,
-      "tddType": "frontend",
-      "effort": "high",
-      "model": "opus",
-      "notes": "Follow the DashboardPanel singleton pattern. The panel communicates with extension via postMessage. Add loadGlobalConfig/saveGlobalConfig methods to vscode/src/ralph/config.ts."
+      "passes": false,
+      "tddType": "testable",
+      "effort": "low",
+      "model": "haiku",
+      "notes": ""
     },
     {
-      "id": "US-009",
-      "title": "VS Code: Model selector in story creation + model badges in tree",
-      "description": "Update the story creation flow to show OpenRouter models from config.json and add model badges to the stories tree view.",
+      "id": "SUM-009",
+      "title": "Sum of squares",
+      "description": "Create src/test-sums/sum09.js exporting sumSquares(arr). Create test file.",
       "acceptanceCriteria": [
-        "In vscode/src/commands/stories.ts addStory(): show built-in models (haiku/sonnet/opus) plus enabled OpenRouter models from config.json in QuickPick",
-        "QuickPick items show model name as label and pricing info as description",
-        "OpenRouter models shown with 'openrouter:' prefix automatically added to story.model",
-        "In vscode/src/views/stories-tree.ts: show model name in StoryItem description",
-        "Add OpenRouterConfig interface to vscode/src/ralph/types.ts",
-        "Add loadGlobalConfig() to vscode/src/ralph/config.ts to read .ralph/config.json"
+        "sumSquares([1,2,3]) returns 14",
+        "sumSquares([0]) returns 0",
+        "sumSquares([-2,3]) returns 13"
       ],
       "priority": 9,
-      "passes": true,
-      "tddType": "frontend",
-      "effort": "medium",
-      "model": "sonnet",
-      "notes": "Modify vscode/src/commands/stories.ts, vscode/src/views/stories-tree.ts, vscode/src/ralph/config.ts, and vscode/src/ralph/types.ts."
+      "passes": false,
+      "tddType": "testable",
+      "effort": "low",
+      "model": "haiku",
+      "notes": ""
     },
     {
-      "id": "US-010",
-      "title": "VS Code: Worktrees tree view and controls",
-      "description": "Add a Worktrees section to the Ralph sidebar showing all active worktrees with status, progress, and controls.",
+      "id": "SUM-010",
+      "title": "Sum of cubes",
+      "description": "Create src/test-sums/sum10.js exporting sumCubes(arr). Create test file.",
       "acceptanceCriteria": [
-        "Create vscode/src/views/worktrees-tree.ts with WorktreesTreeProvider (TreeDataProvider)",
-        "Show each worktree as tree item with: name, branch, status icon (idle/running/complete), progress percentage",
-        "Context menu: Start Loop, Stop, Remove, Open Folder, Merge (if complete)",
-        "Header button: Create Worktree (opens multi-step input: name, branch)",
-        "Register view ralph.worktrees in vscode/package.json under ralph viewsContainer",
-        "Register commands: ralph.createWorktree, ralph.removeWorktree, ralph.startWorktreeLoop, ralph.mergeWorktree",
-        "Auto-refresh when worktrees.json or worktree status files change",
-        "Add worktree commands to extension.ts"
+        "sumCubes([1,2,3]) returns 36",
+        "sumCubes([0]) returns 0",
+        "sumCubes([-1,2]) returns 7"
       ],
       "priority": 10,
-      "passes": true,
-      "tddType": "frontend",
-      "effort": "high",
-      "model": "opus",
-      "notes": "Follow StoriesTreeProvider patterns. The tree reads .ralph/worktrees.json and each worktree's .ralph/status.txt for live status. Add RalphConfig methods for worktree management."
+      "passes": false,
+      "tddType": "testable",
+      "effort": "low",
+      "model": "haiku",
+      "notes": ""
     },
     {
-      "id": "US-011",
-      "title": "Activity logger module + per-story log files",
-      "description": "Create src/core/activity.js with an ActivityLogger class that writes structured JSONL events to .ralph/activity.jsonl and saves per-story agent output to .ralph/logs/<story-id>.log.",
+      "id": "SUM-011",
+      "title": "Sum with initial value (reduce)",
+      "description": "Create src/test-sums/sum11.js exporting sumWithInit(arr, init). Create test file.",
       "acceptanceCriteria": [
-        "Create src/core/activity.js as ESM module with ActivityLogger class",
-        "Constructor takes prdDir, creates .ralph/logs/ directory if needed",
-        "emit(event) method — appends JSON line to .ralph/activity.jsonl with timestamp",
-        "Event types: story_start, agent_spawn, agent_done, quality_check, story_done, feedback_received, loop_start, loop_end, error",
-        "startStoryLog(storyId) — creates/truncates .ralph/logs/<storyId>.log, returns writable stream",
-        "appendStoryLog(storyId, chunk) — appends text to the story log file",
-        "readStoryLog(storyId) — reads full log for a story",
-        "readActivity(limit) — reads last N events from activity.jsonl (tail)",
-        "clear() — truncates activity.jsonl (for new runs)",
-        "Add activity.jsonl and logs/ to .ralph/.gitignore"
+        "sumWithInit([1,2,3], 10) returns 16",
+        "sumWithInit([], 5) returns 5",
+        "sumWithInit([1], 0) returns 1"
       ],
       "priority": 11,
-      "passes": true,
+      "passes": false,
       "tddType": "testable",
       "effort": "low",
-      "model": "sonnet",
-      "research": false,
-      "research_query": "",
-      "research_model": "perplexity/sonar-pro",
-      "notes": "Zero dependencies. Use Node.js fs built-ins. JSONL = one JSON object per line, no array wrapping. Each line has { ts, type, ...data }."
+      "model": "haiku",
+      "notes": ""
     },
     {
-      "id": "US-012",
-      "title": "Integrate activity logger in runner + run.js + feedback mechanism",
-      "description": "Wire the ActivityLogger into the main loop (run.js) and runner.js to emit events at each stage. Add feedback mechanism: read .ralph/.feedback before each iteration, include in prompt, then clear.",
+      "id": "SUM-012",
+      "title": "Sum of absolute values",
+      "description": "Create src/test-sums/sum12.js exporting sumAbs(arr). Create test file.",
       "acceptanceCriteria": [
-        "In src/commands/run.js: create ActivityLogger instance at start",
-        "Emit loop_start event when loop begins",
-        "Emit story_start event with story id, title, model, effort, iteration number",
-        "Emit agent_spawn event when spawnAgent is called",
-        "Emit agent_done event when agent finishes with exit code and duration",
-        "Emit story_done event when story is marked as passed",
-        "Emit loop_end event when loop finishes",
-        "Save agent output to .ralph/logs/<storyId>.log after each agent run",
-        "In runner.js: tee agent stdout to a callback/stream so run.js can capture it for the log file",
-        "Before each iteration, read .ralph/.feedback — if non-empty, prepend to prompt as '## User Feedback' section",
-        "Clear .ralph/.feedback after reading it",
-        "Add .feedback to .ralph/.gitignore"
+        "sumAbs([-1,2,-3]) returns 6",
+        "sumAbs([0,0]) returns 0",
+        "sumAbs([5]) returns 5"
       ],
       "priority": 12,
-      "passes": true,
-      "tddType": "testable",
-      "effort": "medium",
-      "model": "sonnet",
-      "research": false,
-      "research_query": "",
-      "research_model": "perplexity/sonar-pro",
-      "notes": "Modify src/commands/run.js and src/core/runner.js. Import ActivityLogger from ../core/activity.js. The runner's spawnProcess needs to accept an optional onData callback so run.js can stream output to the log file. Do NOT break existing terminal tee behavior."
-    },
-    {
-      "id": "US-013",
-      "title": "VS Code: Live Activity Panel with history and feedback",
-      "description": "Replace/enhance the Progress panel in the VS Code extension with a rich Live Activity Panel that shows real-time events, story history with log access, and a feedback input for user intervention.",
-      "acceptanceCriteria": [
-        "Create or replace vscode/src/views/progress-panel.ts with enhanced webview",
-        "Top section: current story card (id, title, model, effort, iteration, elapsed time)",
-        "Middle section: scrollable activity log reading from .ralph/activity.jsonl with auto-scroll and color-coded event types",
-        "Activity events rendered with icons: story_start (●), agent_spawn (↳), agent_done (✓/✗), quality_check (✓/✗), story_done (✓), feedback_received (💬)",
-        "Bottom section: feedback text input with Send button — writes to .ralph/.feedback",
-        "Control buttons: Pause (SIGTSTP), Skip Story (kill agent), Stop Loop (SIGINT)",
-        "History section: list of completed stories with duration, files changed info, and 'View Log' button that opens .ralph/logs/<storyId>.log in editor",
-        "Auto-refresh by watching activity.jsonl for changes (FileSystemWatcher)",
-        "Use VS Code theme CSS variables for styling",
-        "Register any new commands needed in extension.ts and package.json"
-      ],
-      "priority": 13,
-      "passes": true,
-      "tddType": "frontend",
-      "effort": "high",
-      "model": "opus",
-      "research": false,
-      "research_query": "",
-      "research_model": "perplexity/sonar-pro",
-      "notes": "Follow existing webview patterns from progress-panel.ts and dashboard-panel.ts. The panel communicates with extension via postMessage. For feedback, the extension writes to .ralph/.feedback. For controls (pause/skip/stop), reuse terminal signal logic from commands/loop.ts. Activity log should auto-scroll to bottom but allow user to scroll up without jumping."
-    },
-    {
-      "id": "US-014",
-      "title": "Core timing: per-story duration tracking + ETA calculation",
-      "description": "Track timing data per story in prd.json and add an ETA calculation function that estimates remaining time based on completed story durations grouped by effort/model category.",
-      "acceptanceCriteria": [
-        "In src/commands/run.js: write startedAt (ISO string) to story in prd.json when story begins",
-        "In src/commands/run.js: write completedAt (ISO string) and durationMs (number) to story in prd.json when story finishes",
-        "Track loopStartedAt timestamp at the beginning of the run loop",
-        "Create calculateEta(data) function in src/utils.js that: groups completed story durations by effort+model category, calculates average per category, estimates remaining stories using category average or fallback defaults",
-        "Fallback defaults when no history: low/sonnet=2m, low/opus=4m, medium/sonnet=5m, medium/opus=10m, high/sonnet=10m, high/opus=20m",
-        "Update formatStatus() to include elapsed time and ETA in status.txt: append '| elapsed Xm | eta ~Ym' to the status line",
-        "calculateEta returns { elapsedMs, etaMs, etaFormatted, avgPerCategory }"
-      ],
-      "priority": 14,
-      "passes": true,
-      "tddType": "testable",
-      "effort": "medium",
-      "model": "sonnet",
-      "research": false,
-      "research_query": "",
-      "research_model": "perplexity/sonar-pro",
-      "notes": "Modify src/commands/run.js and src/utils.js. Use config.updateStory() to write timing fields. The status.txt format change must be backward-compatible — existing parsers that split on ' | ' should still work (just more fields). Do NOT break the existing status parsing in the VS Code extension."
-    },
-    {
-      "id": "US-015",
-      "title": "Display timing: elapsed + ETA in CLI status and VS Code panels",
-      "description": "Update all display surfaces to show elapsed time and estimated time remaining: CLI ralph status command, VS Code status bar, and VS Code progress panel.",
-      "acceptanceCriteria": [
-        "Update src/commands/status.js to show elapsed and ETA when loop is running (parse from status.txt)",
-        "Update vscode/src/views/status-bar.ts to show elapsed and ETA in the status bar tooltip and text",
-        "Update vscode/src/views/progress-panel.ts to show elapsed time and ETA card in the webview",
-        "Update vscode/src/ralph/types.ts StatusInfo interface to include elapsed and eta optional string fields",
-        "Update parseStatus() in vscode/src/ralph/config.ts to extract elapsed and eta from the extended status.txt format",
-        "ETA should show as '~Xm' or '~Xh Ym' format, elapsed as 'Xm' or 'Xh Ym'",
-        "When loop is not running or no timing data, gracefully hide timing info instead of showing zeros"
-      ],
-      "priority": 15,
-      "passes": true,
-      "tddType": "frontend",
-      "effort": "medium",
-      "model": "sonnet",
-      "research": false,
-      "research_query": "",
-      "research_model": "perplexity/sonar-pro",
-      "notes": "Modify src/commands/status.js, vscode/src/views/status-bar.ts, vscode/src/views/progress-panel.ts, vscode/src/ralph/config.ts, vscode/src/ralph/types.ts. The status.txt extended format is: 'done/total (pct%) | story_id | status | iter x/y | time | elapsed Xm | eta ~Ym'. Parse the last two pipe-separated fields if present.\""
-    },
-    {
-      "id": "US-016",
-      "title": "Global registry for active Ralph loops",
-      "description": "Create a global registry at ~/.ralph/registry.json where each ralph run registers itself on start and deregisters on finish. This enables cross-project monitoring from the Hub.",
-      "acceptanceCriteria": [
-        "Create src/core/registry.js with GlobalRegistry class",
-        "Constructor uses ~/.ralph/registry.json (create ~/.ralph/ dir if needed)",
-        "register(entry) — adds { project, branch, projectPath, prdDir, pid, startedAt } to registry",
-        "deregister(pid) — removes entry by PID",
-        "list() — returns all entries, filtering out stale PIDs (process.kill(pid, 0) check)",
-        "prune() — removes all stale entries and saves",
-        "In src/commands/run.js: call register() after acquireLock(), call deregister() in finally block",
-        "Registry file is append-safe (read-modify-write with JSON)",
-        "Handle concurrent access gracefully (read fresh before write)"
-      ],
-      "priority": 16,
-      "passes": true,
+      "passes": false,
       "tddType": "testable",
       "effort": "low",
-      "model": "sonnet",
-      "research": false,
-      "research_query": "",
-      "research_model": "perplexity/sonar-pro",
-      "notes": "Zero dependencies. Use os.homedir() for ~/.ralph/. The registry must survive crashes — always prune stale PIDs on read. Do NOT break existing run.js flow.\""
+      "model": "haiku",
+      "notes": ""
     },
     {
-      "id": "US-017",
-      "title": "Hub server: unified web dashboard for all Ralph loops",
-      "description": "Create src/hub/server.js — an HTTP server that serves a unified dashboard UI, REST API, and SSE stream for monitoring and controlling all active Ralph loops across projects. Accessible from browser and VS Code webview alike.",
+      "id": "SUM-013",
+      "title": "Sum of unique elements",
+      "description": "Create src/test-sums/sum13.js exporting sumUnique(arr). Create test file.",
       "acceptanceCriteria": [
-        "Create src/hub/server.js with startHub(opts) function",
-        "HTTP server on port 3742 (configurable via --port)",
-        "GET / — serves dashboard HTML with real-time UI showing all active loops",
-        "GET /events — SSE stream pushing status updates for all loops (poll registry + status.txt every 2s)",
-        "GET /api/status — JSON array of all active loops with progress, current story, elapsed, eta",
-        "GET /api/logs/:project/:storyId — returns story log content from .ralph/logs/<storyId>.log",
-        "POST /api/feedback — write feedback to target project's .ralph/.feedback file",
-        "POST /api/control — start/stop/skip/pause a loop (send signals to PID from registry)",
-        "Dashboard HTML: dark theme, cards per project with progress bar, current story, elapsed/eta, activity log, feedback input, control buttons",
-        "SSE events auto-update the dashboard without page refresh",
-        "Basic auth via RALPH_HUB_TOKEN env var (optional — if set, require Authorization header)",
-        "Add 'hub' command to src/cli.js with --port and --token options",
-        "Zero npm dependencies — use Node.js built-in http module"
+        "sumUnique([1,2,2,3]) returns 6",
+        "sumUnique([1,1,1]) returns 1",
+        "sumUnique([]) returns 0"
+      ],
+      "priority": 13,
+      "passes": false,
+      "tddType": "testable",
+      "effort": "low",
+      "model": "haiku",
+      "notes": ""
+    },
+    {
+      "id": "SUM-014",
+      "title": "Sum of fibonacci up to N",
+      "description": "Create src/test-sums/sum14.js exporting sumFib(n) — sum of fib numbers <= n. Create test file.",
+      "acceptanceCriteria": [
+        "sumFib(10) returns 20 (1+1+2+3+5+8)",
+        "sumFib(1) returns 2 (1+1)",
+        "sumFib(0) returns 0"
+      ],
+      "priority": 14,
+      "passes": false,
+      "tddType": "testable",
+      "effort": "low",
+      "model": "haiku",
+      "notes": ""
+    },
+    {
+      "id": "SUM-015",
+      "title": "Pair sum — find pairs that sum to target",
+      "description": "Create src/test-sums/sum15.js exporting pairSum(arr, target) returning count of pairs. Create test file.",
+      "acceptanceCriteria": [
+        "pairSum([1,2,3,4], 5) returns 2",
+        "pairSum([1,1,1], 2) returns 3",
+        "pairSum([], 0) returns 0"
+      ],
+      "priority": 15,
+      "passes": false,
+      "tddType": "testable",
+      "effort": "low",
+      "model": "haiku",
+      "notes": ""
+    },
+    {
+      "id": "SUM-016",
+      "title": "Sum of string digit characters",
+      "description": "Create src/test-sums/sum16.js exporting sumStringDigits(str). Create test file.",
+      "acceptanceCriteria": [
+        "sumStringDigits('a1b2c3') returns 6",
+        "sumStringDigits('hello') returns 0",
+        "sumStringDigits('99') returns 18"
+      ],
+      "priority": 16,
+      "passes": false,
+      "tddType": "testable",
+      "effort": "low",
+      "model": "haiku",
+      "notes": ""
+    },
+    {
+      "id": "SUM-017",
+      "title": "Nested array deep sum",
+      "description": "Create src/test-sums/sum17.js exporting deepSum(arr) that handles nested arrays. Create test file.",
+      "acceptanceCriteria": [
+        "deepSum([1,[2,[3]]]) returns 6",
+        "deepSum([]) returns 0",
+        "deepSum([[1,2],[3,[4,5]]]) returns 15"
       ],
       "priority": 17,
-      "passes": true,
-      "tddType": "frontend",
-      "effort": "high",
-      "model": "opus",
-      "research": false,
-      "research_query": "",
-      "research_model": "perplexity/sonar-pro",
-      "notes": "Follow the existing dashboard/server.js patterns (inline HTML, SSE, Node.js http). The hub reads ~/.ralph/registry.json for active loops, then reads each project's .ralph/status.txt and .ralph/prd.json for detailed info. Dashboard must work standalone in browser AND be embeddable in VS Code webview. Keep HTML self-contained (no external assets).\""
+      "passes": false,
+      "tddType": "testable",
+      "effort": "low",
+      "model": "haiku",
+      "notes": ""
     },
     {
-      "id": "US-018",
-      "title": "VS Code: Hub panel connecting to hub server",
-      "description": "Add a WebviewPanel to the VS Code extension that connects to the Ralph Hub server, showing the same unified dashboard inside VS Code for monitoring and controlling all active loops.",
+      "id": "SUM-018",
+      "title": "Sum of object values",
+      "description": "Create src/test-sums/sum18.js exporting sumValues(obj). Create test file.",
       "acceptanceCriteria": [
-        "Create vscode/src/views/hub-panel.ts with HubPanel class (singleton pattern like DashboardPanel)",
-        "On open: check if hub server is running (fetch http://localhost:3742/api/status), show start prompt if not",
-        "Load dashboard HTML from hub server and render in webview, or show fallback UI if hub not reachable",
-        "Forward postMessage events from webview to hub API (feedback, control actions)",
-        "Register command ralph.showHub in extension.ts and vscode/package.json",
-        "Add Hub button to Ralph activity bar or Stories view title",
-        "Auto-reconnect if hub server restarts",
-        "Show notification when a loop completes or fails (poll /api/status or listen to SSE)"
+        "sumValues({a:1,b:2,c:3}) returns 6",
+        "sumValues({}) returns 0",
+        "sumValues({x:10}) returns 10"
       ],
       "priority": 18,
-      "passes": true,
-      "tddType": "frontend",
-      "effort": "medium",
-      "model": "sonnet",
-      "research": false,
-      "research_query": "",
-      "research_model": "perplexity/sonar-pro",
-      "notes": "Follow DashboardPanel singleton pattern. The webview loads the same HTML served by the hub server. Use vscode.env.openExternal as fallback to open in browser if webview has issues. Register command in vscode/package.json contributes.commands.\""
+      "passes": false,
+      "tddType": "testable",
+      "effort": "low",
+      "model": "haiku",
+      "notes": ""
+    },
+    {
+      "id": "SUM-019",
+      "title": "Weighted sum",
+      "description": "Create src/test-sums/sum19.js exporting weightedSum(values, weights). Create test file.",
+      "acceptanceCriteria": [
+        "weightedSum([1,2,3],[1,2,3]) returns 14",
+        "weightedSum([5],[2]) returns 10",
+        "weightedSum([],[]) returns 0"
+      ],
+      "priority": 19,
+      "passes": false,
+      "tddType": "testable",
+      "effort": "low",
+      "model": "haiku",
+      "notes": ""
+    },
+    {
+      "id": "SUM-020",
+      "title": "Sum index file",
+      "description": "Create src/test-sums/index.js that re-exports all 19 sum functions. Create src/test-sums/index.test.js that imports from index and verifies all exist.",
+      "acceptanceCriteria": [
+        "index.js exports all 19 functions",
+        "index.test.js verifies each export is a function",
+        "All 19 functions are accessible via import from index"
+      ],
+      "priority": 20,
+      "passes": false,
+      "tddType": "testable",
+      "effort": "low",
+      "model": "haiku",
+      "notes": ""
     }
   ]
 }

@@ -4,7 +4,6 @@ node_modules/
 .ralph/.last-branch
 .ralph/.research_context.md
 *.tgz
-vscode/out/
 vscode/node_modules/
-vscode/*.vsix
 vscode/package-lock.json
+.ralph-worktrees/

@@ -6,6 +6,30 @@ Ralph reads your user stories from a simple JSON file, spawns a fresh Claude Cod
 
 ---
 
+## Why MCP instead of a shell script?
+
+Ralph started as a [bash script](ralph/ralph.sh) — it worked, but was a one-way street. The MCP architecture changes everything:
+
+| | Shell Script (`ralph.sh`) | MCP Server (`ralph mcp`) |
+|---|---|---|
+| **Communication** | One-way. Fire and forget | Bidirectional. Claude reads state, makes decisions, reports back |
+| **PRD creation** | Manual JSON editing | Conversational — Claude asks what you want to build, generates the PRD |
+| **Status** | Open terminal, run `ralph status` | Claude queries status mid-conversation: "how's it going?" |
+| **Multi-PRD** | Manual file management | Built-in archive/create flow with pattern carryover |
+| **Decisions** | None — runs blindly | Smart — checks state first, asks "archive or continue?" |
+| **Dependencies** | Requires `jq`, bash, manual CLAUDE.md | Zero dependencies — pure Node.js |
+| **Context switching** | Terminal ↔ Editor ↔ Claude | Everything inside Claude Code |
+| **Model selection** | Static per story | Claude can suggest models based on story complexity |
+
+**The core insight:** with MCP, Claude Code becomes the orchestrator. It doesn't just run tasks — it understands your project, creates the plan, manages the lifecycle, and keeps you in the loop. The shell script runs code; the MCP server runs a workflow.
+
+```
+Without MCP:  You → edit JSON → run script → check terminal → edit JSON → run again
+With MCP:     You → "build me X" → Claude creates PRD → starts loop → reports progress → done
+```
+
+---
+
 ## 1-Minute Setup
 
 Open Claude Code in your project and paste this:
@@ -229,6 +253,10 @@ Codebase patterns from `progress.txt` always carry forward to the next PRD.
       prd.json
       progress.txt
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, architecture, and guidelines.
 
 ## Updating
 

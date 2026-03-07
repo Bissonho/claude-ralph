@@ -260,7 +260,7 @@
         "Add .feedback to .ralph/.gitignore"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "tddType": "testable",
       "effort": "medium",
       "model": "sonnet",
@@ -340,6 +340,60 @@
       "research_query": "",
       "research_model": "perplexity/sonar-pro",
       "notes": "Modify src/commands/status.js, vscode/src/views/status-bar.ts, vscode/src/views/progress-panel.ts, vscode/src/ralph/config.ts, vscode/src/ralph/types.ts. The status.txt extended format is: 'done/total (pct%) | story_id | status | iter x/y | time | elapsed Xm | eta ~Ym'. Parse the last two pipe-separated fields if present.\""
+    },
+    {
+      "id": "US-016",
+      "title": "Global registry for active Ralph loops",
+      "description": "Create a global registry at ~/.ralph/registry.json where each ralph run registers itself on start and deregisters on finish. This enables cross-project monitoring from the Hub.",
+      "acceptanceCriteria": [
+        "Create src/core/registry.js with GlobalRegistry class",
+        "Constructor uses ~/.ralph/registry.json (create ~/.ralph/ dir if needed)",
+        "register(entry) — adds { project, branch, projectPath, prdDir, pid, startedAt } to registry",
+        "deregister(pid) — removes entry by PID",
+        "list() — returns all entries, filtering out stale PIDs (process.kill(pid, 0) check)",
+        "prune() — removes all stale entries and saves",
+        "In src/commands/run.js: call register() after acquireLock(), call deregister() in finally block",
+        "Registry file is append-safe (read-modify-write with JSON)",
+        "Handle concurrent access gracefully (read fresh before write)"
+      ],
+      "priority": 16,
+      "passes": false,
+      "tddType": "testable",
+      "effort": "low",
+      "model": "sonnet",
+      "research": false,
+      "research_query": "",
+      "research_model": "perplexity/sonar-pro",
+      "notes": "Zero dependencies. Use os.homedir() for ~/.ralph/. The registry must survive crashes — always prune stale PIDs on read. Do NOT break existing run.js flow.\""
+    },
+    {
+      "id": "US-017",
+      "title": "Hub server: unified web dashboard for all Ralph loops",
+      "description": "Create src/hub/server.js — an HTTP server that serves a unified dashboard UI, REST API, and SSE stream for monitoring and controlling all active Ralph loops across projects. Accessible from browser and VS Code webview alike.",
+      "acceptanceCriteria": [
+        "Create src/hub/server.js with startHub(opts) function",
+        "HTTP server on port 3742 (configurable via --port)",
+        "GET / — serves dashboard HTML with real-time UI showing all active loops",
+        "GET /events — SSE stream pushing status updates for all loops (poll registry + status.txt every 2s)",
+        "GET /api/status — JSON array of all active loops with progress, current story, elapsed, eta",
+        "GET /api/logs/:project/:storyId — returns story log content from .ralph/logs/<storyId>.log",
+        "POST /api/feedback — write feedback to target project's .ralph/.feedback file",
+        "POST /api/control — start/stop/skip/pause a loop (send signals to PID from registry)",
+        "Dashboard HTML: dark theme, cards per project with progress bar, current story, elapsed/eta, activity log, feedback input, control buttons",
+        "SSE events auto-update the dashboard without page refresh",
+        "Basic auth via RALPH_HUB_TOKEN env var (optional — if set, require Authorization header)",
+        "Add 'hub' command to src/cli.js with --port and --token options",
+        "Zero npm dependencies — use Node.js built-in http module"
+      ],
+      "priority": 17,
+      "passes": false,
+      "tddType": "frontend",
+      "effort": "high",
+      "model": "opus",
+      "research": false,
+      "research_query": "",
+      "research_model": "perplexity/sonar-pro",
+      "notes": "Follow the existing dashboard/server.js patterns (inline HTML, SSE, Node.js http). The hub reads ~/.ralph/registry.json for active loops, then reads each project's .ralph/status.txt and .ralph/prd.json for detailed info. Dashboard must work standalone in browser AND be embeddable in VS Code webview. Keep HTML self-contained (no external assets).\""
     }
   ]
 }

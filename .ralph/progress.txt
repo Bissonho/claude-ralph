@@ -62,6 +62,12 @@ Started: 2026-03-07T15:48:58.002Z
 - Learnings: createWriteStream with flags:'w' cleanly truncates on startStoryLog; appendFileSync is sync and works well wrapped in a Promise for appendStoryLog; split('\n').filter(Boolean) handles trailing newlines in JSONL reading; all 10 tests pass, 64 total
 ---
 
+## 2026-03-08 - US-012
+- Implemented: ActivityLogger wired into run.js (loop_start, story_start, agent_spawn, agent_done, story_done, loop_end events); onData callback added to spawnProcess/spawnAgent for real-time log capture; agent output saved to .ralph/logs/<storyId>.log via logStream; readAndClearFeedback() helper reads .ralph/.feedback, prepends as '## User Feedback' in prompt, then deletes file; .feedback added to .ralph/.gitignore
+- Files: src/commands/run.js (modified), src/commands/run.test.js (modified), src/core/runner.js (modified), src/core/runner.test.js (modified), .ralph/.gitignore (modified)
+- Learnings: spawnProcess onData pattern keeps existing stderr tee intact while adding per-chunk callback; logStream from startStoryLog() is closed with await new Promise(resolve => logStream.end(resolve)) after agent finishes; story_done only emitted when refreshedStory.passes is true after agent run; feedback file deleted with unlinkSync to fully clear it; dynamic import for runResearch avoids circular dependency concerns
+---
+
 ## 2026-03-07 - US-010
 - Implemented: WorktreesTreeProvider (TreeDataProvider) in vscode/src/views/worktrees-tree.ts showing worktrees with name, branch, status icon (idle/running/complete), progress percentage; context menus for Start/Stop/Merge/Open Folder/Remove; header Create Worktree button with multi-step input (name, branch); registered ralph.worktrees view in package.json; added loadWorktrees() and enrichWorktreeEntry() to RalphConfig; WorktreeEntry/WorktreeInfo interfaces in types.ts; worktrees.json FileSystemWatcher + poll-based auto-refresh; 6 worktree commands wired in extension.ts
 - Files: vscode/src/views/worktrees-tree.ts (new), vscode/src/ralph/types.ts (modified), vscode/src/ralph/config.ts (modified), vscode/package.json (modified), vscode/src/extension.ts (modified)

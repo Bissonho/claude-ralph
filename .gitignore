@@ -1,4 +1,5 @@
 node_modules/
+.mcp.json
 .ralph/status.txt
 .ralph/.lock
 .ralph/.last-branch

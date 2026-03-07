@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
-import { resolveModel, isOpenRouterModel, getOpenRouterModelName, warn } from '../utils.js';
+import { resolveModel, isOpenRouterModel, getOpenRouterModelName, warn, findPrdDir } from '../utils.js';
+import { Config } from './config.js';
 
 // Spawn a Claude/Amp agent and return its output
 // Streams output to stderr so user can watch in real-time
@@ -37,7 +38,8 @@ export function spawnAgent(prompt, story, tool = 'claude') {
 
 function spawnOpenRouter(prompt, model, effort) {
   const orModel = getOpenRouterModelName(model);
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const cfg = new Config(findPrdDir());
+  const apiKey = cfg.getOpenRouterKey();
 
   if (!apiKey) {
     warn('OPENROUTER_API_KEY not set. Falling back to claude-sonnet-4-6');
@@ -131,7 +133,8 @@ function spawnProcess(command, args, stdin, env) {
 
 // Research via OpenRouter API (no shell deps, pure Node.js)
 export async function runResearch(query, model = 'perplexity/sonar-pro') {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const cfg = new Config(findPrdDir());
+  const apiKey = cfg.getOpenRouterKey();
   if (!apiKey) {
     warn('OPENROUTER_API_KEY not set — skipping research');
     return null;

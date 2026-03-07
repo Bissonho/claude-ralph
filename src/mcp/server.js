@@ -125,6 +125,22 @@ const TOOLS = [
     },
   },
   {
+    name: 'ralph_reorder_stories',
+    description: 'Reorder story priorities. Pass an array of story IDs in the desired execution order. Priorities will be reassigned sequentially (1, 2, 3...). Use when the user asks to change execution order, move a story up/down, or execute a story before/after another.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        order: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Story IDs in desired execution order (e.g. ["US-003", "US-001", "US-002"])',
+        },
+      },
+      required: ['order'],
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'ralph_remove_story',
     description: 'Remove a story from prd.json.',
     inputSchema: {
@@ -264,6 +280,44 @@ async function handleTool(name, args) {
       const config = getConfig();
       config.updateStory(id, updates);
       return { ok: true, id };
+    }
+
+    case 'ralph_reorder_stories': {
+      const config = getConfig();
+      const data = config.load();
+      const order = args.order;
+
+      // Validate all IDs exist
+      const storyIds = new Set(data.userStories.map((s) => s.id));
+      const missing = order.filter((id) => !storyIds.has(id));
+      if (missing.length > 0) {
+        return { ok: false, message: `Stories not found: ${missing.join(', ')}` };
+      }
+
+      // Reassign priorities: stories in order get 1, 2, 3...
+      // Stories NOT in the order array keep their relative order after
+      let priority = 1;
+      for (const id of order) {
+        const story = data.userStories.find((s) => s.id === id);
+        if (story) { story.priority = priority++; }
+      }
+
+      // Assign remaining stories after the ordered ones
+      const orderedSet = new Set(order);
+      const remaining = data.userStories
+        .filter((s) => !orderedSet.has(s.id))
+        .sort((a, b) => (a.priority || 999) - (b.priority || 999));
+      for (const story of remaining) {
+        story.priority = priority++;
+      }
+
+      config.save(data);
+      return {
+        ok: true,
+        order: data.userStories
+          .sort((a, b) => a.priority - b.priority)
+          .map((s) => ({ id: s.id, priority: s.priority, title: s.title })),
+      };
     }
 
     case 'ralph_remove_story': {

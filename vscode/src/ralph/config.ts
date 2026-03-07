@@ -152,6 +152,34 @@ export class RalphConfig {
     this.save(data);
   }
 
+  reorderStory(storyId: string, newPriority: number): void {
+    const data = this.load();
+    if (!data) { return; }
+    const story = data.userStories.find(s => s.id === storyId);
+    if (!story) { return; }
+
+    const oldPriority = story.priority;
+    if (oldPriority === newPriority) { return; }
+
+    // Shift other stories to make room
+    for (const s of data.userStories) {
+      if (s.id === storyId) { continue; }
+      if (oldPriority < newPriority) {
+        // Moving down: shift stories in between up
+        if (s.priority > oldPriority && s.priority <= newPriority) {
+          s.priority--;
+        }
+      } else {
+        // Moving up: shift stories in between down
+        if (s.priority >= newPriority && s.priority < oldPriority) {
+          s.priority++;
+        }
+      }
+    }
+    story.priority = newPriority;
+    this.save(data);
+  }
+
   removeStory(storyId: string): void {
     const data = this.load();
     if (!data) { return; }

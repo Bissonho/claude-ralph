@@ -166,6 +166,7 @@ When Claude Code has Ralph as an MCP server, it can manage everything:
 | `ralph_list_stories` | List stories (filter: all/pending/done) |
 | `ralph_add_story` | Add a story to existing PRD |
 | `ralph_update_story` | Update story fields |
+| `ralph_reorder_stories` | Reorder execution priority by passing story IDs in desired order |
 | `ralph_remove_story` | Remove a story |
 | `ralph_add_context` | Add codebase pattern to progress.txt |
 | `ralph_start` | Start the loop in background |

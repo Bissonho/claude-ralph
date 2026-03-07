@@ -4,6 +4,8 @@ import { UserStory, StatusInfo } from '../ralph/types';
 
 type TreeElement = StoryGroupItem | StoryItem;
 
+const STORY_MIME = 'application/vnd.ralph.story';
+
 class StoryGroupItem extends vscode.TreeItem {
   constructor(
     public readonly groupLabel: string,
@@ -22,7 +24,7 @@ export class StoryItem extends vscode.TreeItem {
     super(story.title, vscode.TreeItemCollapsibleState.None);
 
     this.id = story.id;
-    this.description = `${story.id}  ${story.model || 'sonnet'}  ${story.effort || 'medium'}`;
+    this.description = `#${story.priority}  ${story.id}  ${story.model || 'sonnet'}  ${story.effort || 'medium'}`;
 
     if (isRunning) {
       this.iconPath = new vscode.ThemeIcon('sync~spin', new vscode.ThemeColor('charts.blue'));
@@ -67,9 +69,12 @@ export class StoryItem extends vscode.TreeItem {
   }
 }
 
-export class StoriesTreeProvider implements vscode.TreeDataProvider<TreeElement> {
+export class StoriesTreeProvider implements vscode.TreeDataProvider<TreeElement>, vscode.TreeDragAndDropController<TreeElement> {
   private _onDidChangeTreeData = new vscode.EventEmitter<TreeElement | undefined>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+
+  readonly dropMimeTypes = [STORY_MIME];
+  readonly dragMimeTypes = [STORY_MIME];
 
   constructor(private config: RalphConfig) {}
 
@@ -99,11 +104,14 @@ export class StoriesTreeProvider implements vscode.TreeDataProvider<TreeElement>
     const status = this.config.readStatus();
     const runningId = this.extractRunningId(status);
 
+    // Sort by priority for display
+    const sorted = [...data.userStories].sort((a, b) => (a.priority || 999) - (b.priority || 999));
+
     const running: StoryItem[] = [];
     const pending: StoryItem[] = [];
     const done: StoryItem[] = [];
 
-    for (const story of data.userStories) {
+    for (const story of sorted) {
       const isRunning = story.id === runningId;
       const item = new StoryItem(story, isRunning);
 
@@ -148,6 +156,40 @@ export class StoriesTreeProvider implements vscode.TreeDataProvider<TreeElement>
     }
 
     return groups;
+  }
+
+  // --- Drag and Drop ---
+
+  handleDrag(source: readonly TreeElement[], dataTransfer: vscode.DataTransfer): void {
+    const storyItems = source.filter((s): s is StoryItem => s instanceof StoryItem);
+    if (storyItems.length === 0) { return; }
+    dataTransfer.set(STORY_MIME, new vscode.DataTransferItem(storyItems[0].story.id));
+  }
+
+  handleDrop(target: TreeElement | undefined, dataTransfer: vscode.DataTransfer): void {
+    const draggedId = dataTransfer.get(STORY_MIME)?.value as string | undefined;
+    if (!draggedId) { return; }
+
+    let targetPriority: number;
+
+    if (target instanceof StoryItem) {
+      targetPriority = target.story.priority;
+    } else if (target instanceof StoryGroupItem && target.stories.length > 0) {
+      // Dropped on a group header — put at the end of that group
+      const last = target.stories[target.stories.length - 1];
+      targetPriority = last.story.priority;
+    } else {
+      return;
+    }
+
+    const data = this.config.load();
+    if (!data) { return; }
+
+    const draggedStory = data.userStories.find(s => s.id === draggedId);
+    if (!draggedStory || draggedStory.priority === targetPriority) { return; }
+
+    this.config.reorderStory(draggedId, targetPriority);
+    this.refresh();
   }
 
   private extractRunningId(status: StatusInfo | null): string | null {

@@ -38,8 +38,12 @@ export function activate(context: vscode.ExtensionContext): void {
   const statusBar = new RalphStatusBar(config);
 
   // Register views
+  const storiesTreeView = vscode.window.createTreeView('ralph.stories', {
+    treeDataProvider: storiesTree,
+    dragAndDropController: storiesTree,
+  });
   context.subscriptions.push(
-    vscode.window.registerTreeDataProvider('ralph.stories', storiesTree),
+    storiesTreeView,
     vscode.window.registerWebviewViewProvider('ralph.progress', progressView),
     statusBar,
   );

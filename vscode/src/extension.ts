@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { RalphConfig, findPrdDir } from './ralph/config';
 import { RalphWatcher } from './ralph/watcher';
 import { StoriesTreeProvider, StoryItem } from './views/stories-tree';
@@ -7,7 +9,7 @@ import { ProgressViewProvider } from './views/progress-panel';
 import { DashboardPanel } from './views/dashboard-panel';
 import { OpenRouterPanel } from './views/openrouter-panel';
 import { RalphStatusBar } from './views/status-bar';
-import { startLoop, stopLoop, setConfig as setLoopConfig } from './commands/loop';
+import { startLoop, stopLoop, pauseLoop, skipStory, setConfig as setLoopConfig } from './commands/loop';
 import { addStory, markStoryDone, markStoryPending, removeStory, editStory, showStoryDetail } from './commands/stories';
 
 let watcher: RalphWatcher | undefined;
@@ -67,6 +69,13 @@ export function activate(context: vscode.ExtensionContext): void {
     DashboardPanel.refresh();
   });
 
+  // Watch activity.jsonl for live updates to the progress panel
+  const activityPattern = new vscode.RelativePattern(prdDir, 'activity.jsonl');
+  const activityWatcher = vscode.workspace.createFileSystemWatcher(activityPattern);
+  activityWatcher.onDidChange(() => progressView.refresh());
+  activityWatcher.onDidCreate(() => progressView.refresh());
+  context.subscriptions.push(activityWatcher);
+
   // Watch worktrees.json for changes
   const worktreesPattern = new vscode.RelativePattern(prdDir, 'worktrees.json');
   const worktreesWatcher = vscode.workspace.createFileSystemWatcher(worktreesPattern);
@@ -87,6 +96,16 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('ralph.startLoop', () => startLoop()),
     vscode.commands.registerCommand('ralph.stopLoop', () => stopLoop()),
+    vscode.commands.registerCommand('ralph.pauseLoop', () => pauseLoop()),
+    vscode.commands.registerCommand('ralph.skipStory', () => skipStory()),
+    vscode.commands.registerCommand('ralph.openStoryLog', (storyId: string) => {
+      const logFile = path.join(prdDir, 'logs', `${storyId}.log`);
+      if (fs.existsSync(logFile)) {
+        vscode.window.showTextDocument(vscode.Uri.file(logFile));
+      } else {
+        vscode.window.showWarningMessage(`No log file found for ${storyId}.`);
+      }
+    }),
     vscode.commands.registerCommand('ralph.showDashboard', () => {
       DashboardPanel.show(context.extensionUri, config);
     }),

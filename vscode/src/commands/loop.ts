@@ -65,6 +65,26 @@ export function stopLoop(): void {
   }, 2000);
 }
 
+export function pauseLoop(): void {
+  if (!loopTerminal) {
+    vscode.window.showInformationMessage('Ralph: no loop running to pause.');
+    return;
+  }
+  // Send SIGTSTP (Ctrl+Z)
+  loopTerminal.sendText('\x1a', false);
+  vscode.window.showInformationMessage('Ralph: pause signal sent (SIGTSTP).');
+}
+
+export function skipStory(): void {
+  if (!loopTerminal) {
+    vscode.window.showInformationMessage('Ralph: no loop running.');
+    return;
+  }
+  // Send SIGINT to kill the current agent; the loop will continue to next story
+  loopTerminal.sendText('\x03', false);
+  vscode.window.showInformationMessage('Ralph: skip signal sent — current agent will be terminated.');
+}
+
 export function isLoopRunning(): boolean {
   return !!loopTerminal;
 }

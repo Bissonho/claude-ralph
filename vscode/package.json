@@ -27,7 +27,7 @@
       "ralph": [
         {
           "id": "ralph.progress",
-          "name": "Progress",
+          "name": "Activity",
           "type": "webview"
         },
         {
@@ -139,6 +139,21 @@
         "command": "ralph.openWorktreeFolder",
         "title": "Open Folder",
         "icon": "$(folder-opened)"
+      },
+      {
+        "command": "ralph.pauseLoop",
+        "title": "Ralph: Pause Loop",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "ralph.skipStory",
+        "title": "Ralph: Skip Story",
+        "icon": "$(debug-step-over)"
+      },
+      {
+        "command": "ralph.openStoryLog",
+        "title": "Ralph: Open Story Log",
+        "icon": "$(output)"
       }
     ],
     "menus": {

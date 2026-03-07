@@ -7,12 +7,14 @@ export class RalphConfig {
   readonly prdFile: string;
   readonly statusFile: string;
   readonly progressFile: string;
+  readonly lockFile: string;
 
   constructor(prdDir: string) {
     this.prdDir = prdDir;
     this.prdFile = path.join(prdDir, 'prd.json');
     this.statusFile = path.join(prdDir, 'status.txt');
     this.progressFile = path.join(prdDir, 'progress.txt');
+    this.lockFile = path.join(prdDir, '.lock');
   }
 
   exists(): boolean {
@@ -66,6 +68,10 @@ export class RalphConfig {
     }
   }
 
+  isLockFilePresent(): boolean {
+    return fs.existsSync(this.lockFile);
+  }
+
   readStatus(): StatusInfo | null {
     if (!fs.existsSync(this.statusFile)) {
       return null;
@@ -74,15 +80,36 @@ export class RalphConfig {
       const raw = fs.readFileSync(this.statusFile, 'utf-8').trim();
       const parsed = this.parseStatus(raw);
 
-      // If status says "running" but file is stale, mark as stopped
-      if (parsed.status.includes('running') && this.isStatusFileStale()) {
-        parsed.status = 'stopped (stale)';
-        parsed.raw = parsed.raw.replace(/running[^|]*/, 'stopped (stale)');
+      // If status says "running" but evidence says it's dead, fix it permanently
+      if (parsed.status.includes('running') && !this.isActuallyRunning()) {
+        this.clearRunningStatus();
+        parsed.status = 'stopped';
+        parsed.raw = parsed.raw.replace(/running[^|]*/, 'stopped');
       }
 
       return parsed;
     } catch {
       return null;
+    }
+  }
+
+  // Multiple heuristics to detect if the loop is truly running
+  private isActuallyRunning(): boolean {
+    // 1. Lock file must exist — Ralph always creates one while running
+    if (!this.isLockFilePresent()) {
+      return false;
+    }
+
+    // 2. If lock file exists, check if the PID is alive
+    try {
+      const pid = parseInt(fs.readFileSync(this.lockFile, 'utf-8').trim(), 10);
+      if (isNaN(pid)) { return false; }
+      process.kill(pid, 0); // throws if process doesn't exist
+      return true;
+    } catch {
+      // Process is dead — clean up stale lock
+      try { fs.unlinkSync(this.lockFile); } catch { /* ignore */ }
+      return false;
     }
   }
 

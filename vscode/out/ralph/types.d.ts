@@ -1,0 +1,69 @@
+export interface QualityCheck {
+    name: string;
+    command: string;
+}
+export interface UserStory {
+    id: string;
+    title: string;
+    description: string;
+    acceptanceCriteria: string[];
+    priority: number;
+    passes: boolean;
+    tddType: string;
+    effort: string;
+    model: string;
+    notes: string;
+    research?: boolean;
+    research_query?: string;
+    research_model?: string;
+}
+export interface PrdData {
+    project: string;
+    branchName: string;
+    description: string;
+    qualityChecks: QualityCheck[];
+    userStories: UserStory[];
+}
+export interface Progress {
+    total: number;
+    done: number;
+    pending: number;
+    pct: number;
+}
+export interface StatusInfo {
+    done: number;
+    total: number;
+    pct: number;
+    storyId: string | null;
+    status: string;
+    iteration: number;
+    maxIterations: number;
+    time: string;
+    elapsed?: string;
+    eta?: string;
+    raw: string;
+}
+export interface OpenRouterModel {
+    id: string;
+    enabled: boolean;
+}
+export interface OpenRouterConfig {
+    apiKey?: string;
+    defaultModel?: string;
+    researchModel?: string;
+    models?: OpenRouterModel[];
+}
+export interface GlobalConfig {
+    openrouter?: OpenRouterConfig;
+}
+export interface WorktreeEntry {
+    name: string;
+    branch: string;
+    path: string;
+    createdAt: string;
+}
+export interface WorktreeInfo extends WorktreeEntry {
+    status: 'idle' | 'running' | 'complete';
+    progress?: Progress;
+}
+//# sourceMappingURL=types.d.ts.map

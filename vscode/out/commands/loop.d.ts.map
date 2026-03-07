@@ -1,0 +1,1 @@
+{"version":3,"file":"loop.d.ts","sourceRoot":"","sources":["../../src/commands/loop.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,WAAW,EAAE,MAAM,iBAAiB,CAAC;AAK9C,wBAAgB,SAAS,CAAC,MAAM,EAAE,WAAW,GAAG,IAAI,CAEnD;AAED,wBAAgB,SAAS,IAAI,IAAI,CA+BhC;AAED,wBAAgB,QAAQ,IAAI,IAAI,CAsB/B;AAED,wBAAgB,SAAS,IAAI,IAAI,CAQhC;AAED,wBAAgB,SAAS,IAAI,IAAI,CAQhC;AAED,wBAAgB,aAAa,IAAI,OAAO,CAEvC"}

@@ -17,6 +17,7 @@ ${c.bold}Usage:${c.reset}
   ralph worktree <subcommand>     Manage git worktrees for parallel runs
   ralph dashboard [--port 3741]   Open visual task board (live updates)
   ralph hub [--port 3742]         Unified dashboard for all active loops
+  ralph extension                 Install VS Code extension
   ralph mcp                      Start MCP server (for Claude Code)
 
 ${c.bold}Run options:${c.reset}
@@ -52,6 +53,10 @@ export async function cli(args) {
 
     case 'hub':
       return startHub(parseHubArgs(args.slice(1)));
+
+    case 'extension':
+    case 'ext':
+      return installExtension();
 
     case 'mcp':
       return startMcpServer();
@@ -133,6 +138,39 @@ function parseDashboardArgs(args) {
     if (args[i] === '--prd-dir') opts.prdDir = args[++i];
   }
   return opts;
+}
+
+async function installExtension() {
+  const { execSync } = await import('child_process');
+  const { existsSync, readdirSync } = await import('fs');
+  const { fileURLToPath } = await import('url');
+  const { dirname, join } = await import('path');
+
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const vscodeDir = join(__dirname, '..', 'vscode');
+
+  // Find .vsix file
+  let vsixPath = null;
+  if (existsSync(vscodeDir)) {
+    const files = readdirSync(vscodeDir).filter((f) => f.endsWith('.vsix'));
+    if (files.length > 0) {
+      vsixPath = join(vscodeDir, files[files.length - 1]);
+    }
+  }
+
+  if (!vsixPath) {
+    console.error(`${c.red}error${c.reset} No .vsix file found. Run 'cd vscode && npm run compile && npx @vscode/vsce package' first.`);
+    process.exit(1);
+  }
+
+  console.log(`${c.cyan}info${c.reset} Installing VS Code extension from ${vsixPath}`);
+  try {
+    execSync(`code --install-extension "${vsixPath}" --force`, { stdio: 'inherit' });
+    console.log(`${c.green}done${c.reset} Extension installed. Reload VS Code to activate.`);
+  } catch {
+    console.error(`${c.red}error${c.reset} Failed to install. Is 'code' command available? Run 'Shell Command: Install code command' in VS Code.`);
+    process.exit(1);
+  }
 }
 
 function parseHubArgs(args) {

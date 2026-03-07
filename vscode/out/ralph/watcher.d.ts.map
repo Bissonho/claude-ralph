@@ -1,0 +1,1 @@
+{"version":3,"file":"watcher.d.ts","sourceRoot":"","sources":["../../src/ralph/watcher.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,MAAM,MAAM,QAAQ,CAAC;AAGjC,qBAAa,YAAa,YAAW,MAAM,CAAC,UAAU;IACpD,OAAO,CAAC,QAAQ,CAAkC;IAClD,OAAO,CAAC,YAAY,CAAmC;IACvD,QAAQ,CAAC,WAAW,qBAA2B;gBAEnC,MAAM,EAAE,MAAM;IAc1B,OAAO,IAAI,IAAI;CAIhB"}

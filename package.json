@@ -13,7 +13,11 @@
     "ralph/prd.json.example",
     "skills/",
     "agents/",
-    "rules/"
+    "rules/",
+    "vscode/out/",
+    "vscode/package.json",
+    "vscode/resources/",
+    "vscode/*.vsix"
   ],
   "scripts": {
     "test": "node --test src/**/*.test.js",

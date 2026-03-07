@@ -44,6 +44,12 @@ Started: 2026-03-07T15:48:58.002Z
 - Files: src/mcp/server.js (modified)
 - Learnings: WorktreeManager imported via dynamic import('../core/worktree.js') inside async case handlers; ralph_worktree_create_prd reuses the same prdData shape as ralph_create_prd but targets a worktree's Config via wm.getConfig(name); all 7 tools follow the try/catch handleTool pattern with compact JSON responses
 ---
+## 2026-03-08 - US-009
+- Implemented: Updated addStory() in vscode/src/commands/stories.ts to load enabled OpenRouter models from config.json via loadGlobalConfig(); QuickPick shows built-in models (sonnet/opus/haiku) with "Anthropic (built-in)" description plus enabled OpenRouter models with "OpenRouter" description; OpenRouter model selections are stored with 'openrouter:' prefix in story.model; StoryItem description already showed model name (no change needed); types.ts and config.ts already had OpenRouterConfig and loadGlobalConfig() from US-008
+- Files: vscode/src/commands/stories.ts (modified)
+- Learnings: QuickPick items can be extended with custom fields using intersection types (vscode.QuickPickItem & { modelValue: string }); loadGlobalConfig() was already available on RalphConfig from US-008; stories-tree.ts StoryItem.description already included model name at line 27 — no additional changes needed for model badges
+---
+
 ## 2026-03-07 - US-008
 - Implemented: OpenRouterPanel singleton webview in vscode/src/views/openrouter-panel.ts with API key input (password toggle), validate/save buttons, fetch models from OpenRouter API, model list with enable/disable checkboxes, default/research model dropdowns; added loadGlobalConfig()/saveGlobalConfig() to RalphConfig and GlobalConfig/OpenRouterConfig/OpenRouterModel interfaces to types.ts; registered ralph.openRouterSettings command in extension.ts and package.json with settings-gear button in Stories view title bar
 - Files: vscode/src/views/openrouter-panel.ts (new), vscode/src/ralph/config.ts (modified), vscode/src/ralph/types.ts (modified), vscode/src/extension.ts (modified), vscode/package.json (modified), .ralph/prd.json (modified)

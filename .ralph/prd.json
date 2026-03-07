@@ -188,7 +188,7 @@
         "Add loadGlobalConfig() to vscode/src/ralph/config.ts to read .ralph/config.json"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "tddType": "frontend",
       "effort": "medium",
       "model": "sonnet",
@@ -294,6 +294,52 @@
       "research_query": "",
       "research_model": "perplexity/sonar-pro",
       "notes": "Follow existing webview patterns from progress-panel.ts and dashboard-panel.ts. The panel communicates with extension via postMessage. For feedback, the extension writes to .ralph/.feedback. For controls (pause/skip/stop), reuse terminal signal logic from commands/loop.ts. Activity log should auto-scroll to bottom but allow user to scroll up without jumping."
+    },
+    {
+      "id": "US-014",
+      "title": "Core timing: per-story duration tracking + ETA calculation",
+      "description": "Track timing data per story in prd.json and add an ETA calculation function that estimates remaining time based on completed story durations grouped by effort/model category.",
+      "acceptanceCriteria": [
+        "In src/commands/run.js: write startedAt (ISO string) to story in prd.json when story begins",
+        "In src/commands/run.js: write completedAt (ISO string) and durationMs (number) to story in prd.json when story finishes",
+        "Track loopStartedAt timestamp at the beginning of the run loop",
+        "Create calculateEta(data) function in src/utils.js that: groups completed story durations by effort+model category, calculates average per category, estimates remaining stories using category average or fallback defaults",
+        "Fallback defaults when no history: low/sonnet=2m, low/opus=4m, medium/sonnet=5m, medium/opus=10m, high/sonnet=10m, high/opus=20m",
+        "Update formatStatus() to include elapsed time and ETA in status.txt: append '| elapsed Xm | eta ~Ym' to the status line",
+        "calculateEta returns { elapsedMs, etaMs, etaFormatted, avgPerCategory }"
+      ],
+      "priority": 14,
+      "passes": false,
+      "tddType": "testable",
+      "effort": "medium",
+      "model": "sonnet",
+      "research": false,
+      "research_query": "",
+      "research_model": "perplexity/sonar-pro",
+      "notes": "Modify src/commands/run.js and src/utils.js. Use config.updateStory() to write timing fields. The status.txt format change must be backward-compatible — existing parsers that split on ' | ' should still work (just more fields). Do NOT break the existing status parsing in the VS Code extension."
+    },
+    {
+      "id": "US-015",
+      "title": "Display timing: elapsed + ETA in CLI status and VS Code panels",
+      "description": "Update all display surfaces to show elapsed time and estimated time remaining: CLI ralph status command, VS Code status bar, and VS Code progress panel.",
+      "acceptanceCriteria": [
+        "Update src/commands/status.js to show elapsed and ETA when loop is running (parse from status.txt)",
+        "Update vscode/src/views/status-bar.ts to show elapsed and ETA in the status bar tooltip and text",
+        "Update vscode/src/views/progress-panel.ts to show elapsed time and ETA card in the webview",
+        "Update vscode/src/ralph/types.ts StatusInfo interface to include elapsed and eta optional string fields",
+        "Update parseStatus() in vscode/src/ralph/config.ts to extract elapsed and eta from the extended status.txt format",
+        "ETA should show as '~Xm' or '~Xh Ym' format, elapsed as 'Xm' or 'Xh Ym'",
+        "When loop is not running or no timing data, gracefully hide timing info instead of showing zeros"
+      ],
+      "priority": 15,
+      "passes": false,
+      "tddType": "frontend",
+      "effort": "medium",
+      "model": "sonnet",
+      "research": false,
+      "research_query": "",
+      "research_model": "perplexity/sonar-pro",
+      "notes": "Modify src/commands/status.js, vscode/src/views/status-bar.ts, vscode/src/views/progress-panel.ts, vscode/src/ralph/config.ts, vscode/src/ralph/types.ts. The status.txt extended format is: 'done/total (pct%) | story_id | status | iter x/y | time | elapsed Xm | eta ~Ym'. Parse the last two pipe-separated fields if present.\""
     }
   ]
 }

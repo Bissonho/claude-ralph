@@ -1,6 +1,7 @@
 import { init } from './commands/init.js';
 import { run } from './commands/run.js';
 import { status } from './commands/status.js';
+import { worktreeCommand } from './commands/worktree.js';
 import { startMcpServer } from './mcp/server.js';
 import { startDashboard } from './dashboard/server.js';
 import { c } from './utils.js';
@@ -12,6 +13,7 @@ ${c.bold}Usage:${c.reset}
   ralph init                      Initialize .ralph/ in current project
   ralph run [options]             Start the agent loop
   ralph status                    Show progress
+  ralph worktree <subcommand>     Manage git worktrees for parallel runs
   ralph dashboard [--port 3741]   Open visual task board (live updates)
   ralph mcp                      Start MCP server (for Claude Code)
 
@@ -38,6 +40,9 @@ export async function cli(args) {
 
     case 'status':
       return status(parseStatusArgs(args.slice(1)));
+
+    case 'worktree':
+      return worktreeCommand(args.slice(1));
 
     case 'dashboard':
     case 'ui':

@@ -6,3 +6,4 @@ config.json
 .openrouter-models-cache.json
 activity.jsonl
 logs/
+.feedback

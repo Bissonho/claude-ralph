@@ -115,3 +115,28 @@ describe('runner - spawnAgent with OpenRouter model', () => {
     if (origEnv !== undefined) process.env.OPENROUTER_API_KEY = origEnv;
   });
 });
+
+describe('runner - onData callback', () => {
+  it('spawnProcess calls onData callback with stdout chunks', async () => {
+    const { spawnProcess } = await import('./runner.js');
+    const chunks = [];
+    const result = await spawnProcess(
+      'node', ['-e', "process.stdout.write('hello world')"],
+      '', process.env,
+      (chunk) => chunks.push(chunk)
+    );
+    assert.ok(chunks.length > 0, 'onData should be called at least once');
+    assert.ok(chunks.join('').includes('hello world'), 'onData should receive stdout content');
+    assert.equal(result.code, 0);
+  });
+
+  it('spawnProcess works without onData callback (backward compat)', async () => {
+    const { spawnProcess } = await import('./runner.js');
+    const result = await spawnProcess(
+      'node', ['-e', "process.stdout.write('compat-test')"],
+      '', process.env
+    );
+    assert.equal(result.code, 0);
+    assert.ok(result.output.includes('compat-test'));
+  });
+});

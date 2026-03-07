@@ -1,9 +1,19 @@
-import { existsSync, mkdirSync, copyFileSync, writeFileSync, readFileSync } from 'fs';
+import { existsSync, mkdirSync, copyFileSync, writeFileSync, readFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { Config } from '../core/config.js';
 import { generatePrompt } from '../core/prompt.js';
-import { spawnAgent, runResearch } from '../core/runner.js';
+import { spawnAgent } from '../core/runner.js';
+import { ActivityLogger } from '../core/activity.js';
 import { info, warn, error, success, c, progressBar, formatDuration, findPrdDir } from '../utils.js';
+
+// Read .ralph/.feedback content and delete the file. Returns trimmed content or ''.
+export function readAndClearFeedback(prdDir) {
+  const feedbackPath = join(prdDir, '.feedback');
+  if (!existsSync(feedbackPath)) return '';
+  const content = readFileSync(feedbackPath, 'utf8').trim();
+  unlinkSync(feedbackPath);
+  return content;
+}
 
 export async function run(opts = {}) {
   const maxIterations = opts.maxIterations || 30;
@@ -46,6 +56,9 @@ export async function run(opts = {}) {
   // Lock
   config.acquireLock();
 
+  // Activity logger
+  const logger = new ActivityLogger(prdDir);
+
   // Graceful shutdown
   let stopped = false;
   const shutdown = () => {
@@ -75,6 +88,8 @@ export async function run(opts = {}) {
     info(`Starting loop: ${c.bold}${maxIterations}${c.reset} max iterations, tool: ${c.bold}${tool}${c.reset}`);
     console.log('');
 
+    logger.emit({ type: 'loop_start', maxIterations, tool });
+
     for (let i = 1; i <= maxIterations; i++) {
       if (stopped) break;
 
@@ -99,6 +114,8 @@ export async function run(opts = {}) {
       console.log(`${c.bold}═══════════════════════════════════════════════════${c.reset}`);
       console.log('');
 
+      logger.emit({ type: 'story_start', storyId: story.id, title: story.title, model: storyModel, effort: storyEffort, iteration: i });
+
       config.updateStatus(
         formatStatus(config, currentData, i, maxIterations, story.id, `running: ${story.title}`)
       );
@@ -108,6 +125,7 @@ export async function run(opts = {}) {
       if (story.research && story.research_query) {
         info(`Running research: ${story.research_query}`);
         const rModel = story.research_model || researchModel;
+        const { runResearch } = await import('../core/runner.js');
         researchContext = await runResearch(story.research_query, rModel);
         if (researchContext) {
           info(`Research complete (${researchContext.length} chars)`);
@@ -123,22 +141,45 @@ export async function run(opts = {}) {
         prompt = `# Research Context (for ${story.id})\n\n${researchContext}\n\n---\n\n${prompt}`;
       }
 
+      // Prepend user feedback if available
+      const feedback = readAndClearFeedback(prdDir);
+      if (feedback) {
+        prompt = `## User Feedback\n\n${feedback}\n\n---\n\n${prompt}`;
+      }
+
+      // Open log stream for this story
+      const logStream = logger.startStoryLog(story.id);
+      const onData = (chunk) => logStream.write(chunk);
+
       // Spawn agent
+      logger.emit({ type: 'agent_spawn', storyId: story.id, tool });
       const startTime = Date.now();
-      const result = await spawnAgent(prompt, story, tool);
+      const result = await spawnAgent(prompt, story, tool, onData);
       const elapsed = Date.now() - startTime;
+
+      // Close log stream
+      await new Promise((resolve) => logStream.end(resolve));
+
+      logger.emit({ type: 'agent_done', storyId: story.id, code: result.code, durationMs: elapsed });
 
       console.log('');
       info(`Iteration ${i} done in ${formatDuration(elapsed)} (exit code: ${result.code})`);
 
+      // Check if story is now marked as passed
+      const refreshedData = config.load();
+      const refreshedStory = refreshedData.userStories.find((s) => s.id === story.id);
+      if (refreshedStory && refreshedStory.passes) {
+        logger.emit({ type: 'story_done', storyId: story.id });
+      }
+
       config.updateStatus(
-        formatStatus(config, config.load(), i, maxIterations, story.id, 'done')
+        formatStatus(config, refreshedData, i, maxIterations, story.id, 'done')
       );
 
       // Check for completion signal
       if (result.output && result.output.includes('<promise>COMPLETE</promise>')) {
         config.updateStatus(
-          formatStatus(config, config.load(), i, maxIterations, '-', 'COMPLETE')
+          formatStatus(config, refreshedData, i, maxIterations, '-', 'COMPLETE')
         );
         console.log('');
         success(`All tasks complete! Finished at iteration ${i}/${maxIterations}`);
@@ -155,6 +196,8 @@ export async function run(opts = {}) {
         await sleep(2000);
       }
     }
+
+    logger.emit({ type: 'loop_end' });
 
     // Check final state
     const finalData = config.load();

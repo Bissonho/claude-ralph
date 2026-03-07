@@ -4,7 +4,8 @@ import { Config } from './config.js';
 
 // Spawn a Claude/Amp agent and return its output
 // Streams output to stderr so user can watch in real-time
-export function spawnAgent(prompt, story, tool = 'claude') {
+// onData: optional callback called with each stdout chunk (string)
+export function spawnAgent(prompt, story, tool = 'claude', onData) {
   const model = story.model || 'sonnet';
   const effort = story.effort || 'medium';
 
@@ -13,11 +14,11 @@ export function spawnAgent(prompt, story, tool = 'claude') {
     delete ampEnv.CLAUDECODE;
     delete ampEnv.CLAUDE_CODE_SSE_PORT;
     delete ampEnv.CLAUDE_CODE_ENTRYPOINT;
-    return spawnProcess('amp', ['--dangerously-allow-all'], prompt, ampEnv);
+    return spawnProcess('amp', ['--dangerously-allow-all'], prompt, ampEnv, onData);
   }
 
   if (isOpenRouterModel(model)) {
-    return spawnOpenRouter(prompt, model, effort);
+    return spawnOpenRouter(prompt, model, effort, onData);
   }
 
   const resolvedModel = resolveModel(model);
@@ -33,10 +34,10 @@ export function spawnAgent(prompt, story, tool = 'claude') {
   delete env.CLAUDE_CODE_SSE_PORT;
   delete env.CLAUDE_CODE_ENTRYPOINT;
 
-  return spawnProcess('claude', args, prompt, env);
+  return spawnProcess('claude', args, prompt, env, onData);
 }
 
-function spawnOpenRouter(prompt, model, effort) {
+function spawnOpenRouter(prompt, model, effort, onData) {
   const orModel = getOpenRouterModelName(model);
   const cfg = new Config(findPrdDir());
   const apiKey = cfg.getOpenRouterKey();
@@ -52,7 +53,7 @@ function spawnOpenRouter(prompt, model, effort) {
       '--effort', effort,
       '--dangerously-skip-permissions',
       '--print',
-    ], prompt, env);
+    ], prompt, env, onData);
   }
 
   const env = {
@@ -69,10 +70,10 @@ function spawnOpenRouter(prompt, model, effort) {
     '--effort', effort,
     '--dangerously-skip-permissions',
     '--print',
-  ], prompt, env);
+  ], prompt, env, onData);
 }
 
-function spawnProcess(command, args, stdin, env) {
+export function spawnProcess(command, args, stdin, env, onData) {
   return new Promise((resolve, reject) => {
     const proc = spawn(command, args, {
       env,
@@ -86,6 +87,7 @@ function spawnProcess(command, args, stdin, env) {
       const text = chunk.toString();
       output += text;
       process.stderr.write(text); // tee to terminal
+      if (onData) onData(text);
     });
 
     proc.stdin.on('error', () => {

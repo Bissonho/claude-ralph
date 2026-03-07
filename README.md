@@ -1,146 +1,113 @@
-# claude-ralph
+# ralph-cli
 
-Shared Claude Code tools for autonomous AI development loops.
+Autonomous AI agent loop for Claude Code. Iterates through PRD user stories, implementing one per iteration until all pass.
 
-Provides versioned, shareable **skills**, **agents**, **rules**, and the **Ralph loop** — a multi-iteration autonomous coding agent that implements PRD user stories one at a time.
-
----
-
-## What's included
-
-```
-claude-ralph/
-├── setup.sh                      # Symlink installer for target projects
-│
-├── skills/
-│   ├── prd/SKILL.md              # PRD generator skill
-│   └── ralph/SKILL.md            # PRD-to-JSON converter + multi-model docs
-│
-├── agents/
-│   └── explorer.md               # Fast read-only codebase explorer
-│
-├── rules/
-│   └── commits.md                # Atomic commit conventions
-│
-└── ralph/
-    ├── ralph.sh                  # Autonomous agent loop
-    ├── research.sh               # Pre-story research via OpenRouter
-    ├── CLAUDE.md.template        # Prompt template (fill per project)
-    └── prd.json.example          # Schema with all fields documented
-```
-
----
-
-## Quick start
-
-### 1. Add as git submodule
+## Install
 
 ```bash
-cd your-project
-git submodule add git@github.com:heimo/claude-ralph .claude/shared
-git submodule update --init
+npm install -g ralph-cli
+# or use directly
+npx ralph-cli
 ```
 
-### 2. Run setup
+## Quick Start
 
 ```bash
-.claude/shared/setup.sh
+# 1. Initialize in your project
+ralph init
+
+# 2. Edit .ralph/prd.json — add your user stories
+
+# 3. Run the loop
+ralph run
 ```
 
-This creates symlinks in `.claude/skills/`, `.claude/agents/`, `.claude/rules/`, and `scripts/ralph/`.
+## How It Works
 
-### 3. Configure your project
-
-```bash
-# Fill in project-specific prompt
-cp .claude/shared/ralph/CLAUDE.md.template scripts/ralph/CLAUDE.md
-# (edit scripts/ralph/CLAUDE.md with your architecture, quality checks, etc.)
-
-# Create your PRD (use /ralph skill in Claude Code, or manually)
-cp .claude/shared/ralph/prd.json.example scripts/ralph/prd.json
-# (edit scripts/ralph/prd.json with your user stories)
-
-chmod +x scripts/ralph/ralph.sh scripts/ralph/research.sh
-```
-
-### 4. Run Ralph
-
-```bash
-# Basic run
-./scripts/ralph/ralph.sh
-
-# With research (needs OpenRouter key)
-export OPENROUTER_API_KEY=sk-or-...
-./scripts/ralph/ralph.sh
-
-# Custom prd-dir (e.g., monorepo with multiple features)
-./scripts/ralph/ralph.sh --prd-dir tasks/my-feature/
-
-# Specify max iterations
-./scripts/ralph/ralph.sh 15
-```
-
----
-
-## How Ralph works
-
-1. Reads `prd.json` and picks the highest-priority story where `passes: false`
-2. Optionally runs a **research query** (if `research: true` in the story) via OpenRouter
-3. Spawns a fresh Claude instance with the project's `CLAUDE.md` prompt + research context
-4. Claude implements the story, runs quality checks, commits, and marks the story `passes: true`
+1. Reads `.ralph/prd.json` — picks the highest-priority story where `passes: false`
+2. Generates a token-optimized prompt (~500 tokens vs ~2500 in v1)
+3. Spawns a fresh Claude Code instance with `--dangerously-skip-permissions`
+4. Agent implements the story, runs quality checks, commits, marks `passes: true`
 5. Repeats until all stories pass or max iterations reached
 
----
+## CLI
 
-## Multi-model support
+```
+ralph init                      Initialize .ralph/ in current project
+ralph run [options]             Start the agent loop
+ralph status                    Show progress
+ralph mcp                      Start MCP server (for Claude Code)
+```
 
-Each story can specify a `model` field:
+### Run Options
 
-| Value | Model used |
-|-------|------------|
-| `sonnet` | claude-sonnet-4-6 (default) |
-| `opus` | claude-opus-4-6 |
-| `haiku` | claude-haiku-4-5-20251001 |
-| `openrouter:model/name` | Any model via OpenRouter API |
+```
+--max-iterations <n>            Max iterations (default: 30)
+--tool <claude|amp>             Agent tool (default: claude)
+--prd-dir <path>                PRD directory (default: .ralph/)
+--research-model <model>        Default research model
+```
 
-Example OpenRouter models:
+## MCP Integration (Claude Code manages Ralph)
 
-| Category | Model |
-|----------|-------|
-| Research | `perplexity/sonar-pro` |
-| Reasoning | `google/gemini-2.0-flash-thinking-exp` |
-| Code | `deepseek/deepseek-r1` |
-
----
-
-## Research support
-
-Stories with `research: true` get a pre-implementation research query:
+Add to your project's `.mcp.json`:
 
 ```json
 {
-  "id": "US-005",
-  "title": "Integrate Stripe",
-  "research": true,
-  "research_query": "Stripe payment intents best practices 2025 Node.js",
-  "research_model": "perplexity/sonar-pro",
-  "model": "opus"
+  "mcpServers": {
+    "ralph": {
+      "command": "npx",
+      "args": ["ralph-cli", "mcp"]
+    }
+  }
 }
 ```
 
-Requires `OPENROUTER_API_KEY` to be set. If not set, the research phase is silently skipped.
+### MCP Tools
 
----
+| Tool | Description |
+|------|-------------|
+| `ralph_status` | Compact progress JSON |
+| `ralph_list_stories` | List stories (filter: all/pending/done) |
+| `ralph_add_story` | Add a story to prd.json |
+| `ralph_update_story` | Update story fields |
+| `ralph_remove_story` | Remove a story |
+| `ralph_add_context` | Add codebase pattern to progress.txt |
+| `ralph_start` | Start the loop in background |
+| `ralph_init` | Initialize .ralph/ |
 
-## prd.json schema
+## prd.json Schema
 
-See `ralph/prd.json.example` for a fully documented example with all fields.
+```json
+{
+  "project": "My App",
+  "branchName": "ralph/feature-name",
+  "description": "Feature description",
+  "qualityChecks": [
+    { "name": "lint", "command": "npm run lint" },
+    { "name": "test", "command": "npm test" }
+  ],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Story title",
+      "description": "As a user, I want...",
+      "acceptanceCriteria": ["Criterion 1", "Criterion 2"],
+      "priority": 1,
+      "passes": false,
+      "effort": "medium",
+      "model": "sonnet",
+      "notes": "Context for the agent"
+    }
+  ]
+}
+```
 
-Key fields per story:
+### Story Fields
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | string | US-001, US-002, … |
+| `id` | string | US-001, US-002, etc. |
 | `title` | string | Short imperative title |
 | `description` | string | User story format |
 | `acceptanceCriteria` | string[] | Verifiable checklist |
@@ -148,33 +115,34 @@ Key fields per story:
 | `passes` | boolean | `false` until completed |
 | `tddType` | string | testable / scaffold / frontend / infra |
 | `effort` | string | low / medium / high |
-| `model` | string | Claude shorthand or `openrouter:model/name` |
+| `model` | string | opus / sonnet / haiku / openrouter:model/name |
 | `research` | boolean | Run research before this story |
 | `research_query` | string | The research query |
-| `research_model` | string | OpenRouter model for research |
 | `notes` | string | Hints for the agent |
 
----
+### Model Selection
 
-## Updating
+| Model | When |
+|-------|------|
+| `opus` | Complex: 8+ files, architecture decisions |
+| `sonnet` | Standard: most stories (default) |
+| `haiku` | Simple: 1-2 files, minor fixes |
+| `openrouter:*` | Any OpenRouter model |
+
+## Token Optimization
+
+Ralph v2 generates prompts that are ~75% smaller than v1:
+- Tells agent to read `CLAUDE.md` from disk (not embedded in prompt)
+- Only includes current story details (not all stories)
+- Only sends Codebase Patterns (not full progress history)
+- Uses `--effort` flag to control response verbosity
+
+## Git Submodule (Alternative Install)
 
 ```bash
-# Pull latest shared tools
-git submodule update --remote .claude/shared
-git add .claude/shared
-git commit -m "chore: update claude-ralph to latest"
+git submodule add git@github.com:heimo/claude-ralph .claude/shared
+.claude/shared/setup.sh
 ```
-
----
-
-## Skills (Claude Code)
-
-After setup, these slash commands are available in Claude Code:
-
-- `/prd` — Generate a PRD with clarifying questions
-- `/ralph` — Convert a PRD to `prd.json` format
-
----
 
 ## License
 

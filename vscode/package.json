@@ -1,0 +1,195 @@
+{
+  "name": "ralph-vscode",
+  "displayName": "Ralph — AI Agent Dashboard",
+  "description": "Visual dashboard for Ralph autonomous AI agent loop. Track PRD stories, monitor progress, and control the agent loop directly from VS Code.",
+  "version": "0.1.0",
+  "publisher": "heimo",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [
+    "workspaceContains:.ralph/prd.json",
+    "workspaceContains:scripts/ralph/prd.json"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ralph",
+          "title": "Ralph",
+          "icon": "resources/icons/ralph.svg"
+        }
+      ]
+    },
+    "views": {
+      "ralph": [
+        {
+          "id": "ralph.progress",
+          "name": "Progress",
+          "type": "webview"
+        },
+        {
+          "id": "ralph.stories",
+          "name": "Stories"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "ralph.startLoop",
+        "title": "Ralph: Start Loop",
+        "icon": "$(play)"
+      },
+      {
+        "command": "ralph.stopLoop",
+        "title": "Ralph: Stop Loop",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "ralph.init",
+        "title": "Ralph: Initialize Project"
+      },
+      {
+        "command": "ralph.showDashboard",
+        "title": "Ralph: Show Dashboard",
+        "icon": "$(dashboard)"
+      },
+      {
+        "command": "ralph.refresh",
+        "title": "Ralph: Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "ralph.openPrd",
+        "title": "Ralph: Open PRD",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "ralph.addStory",
+        "title": "Ralph: Add Story",
+        "icon": "$(add)"
+      },
+      {
+        "command": "ralph.markStoryDone",
+        "title": "Mark as Done",
+        "icon": "$(check)"
+      },
+      {
+        "command": "ralph.markStoryPending",
+        "title": "Mark as Pending",
+        "icon": "$(circle-outline)"
+      },
+      {
+        "command": "ralph.removeStory",
+        "title": "Remove Story",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "ralph.editStory",
+        "title": "Edit Story",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "ralph.openProgress",
+        "title": "Ralph: Open Progress Log",
+        "icon": "$(output)"
+      },
+      {
+        "command": "ralph.archivePrd",
+        "title": "Ralph: Archive PRD & Start New",
+        "icon": "$(archive)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "ralph.startLoop",
+          "when": "view == ralph.stories && !ralph.loopRunning",
+          "group": "navigation@1"
+        },
+        {
+          "command": "ralph.stopLoop",
+          "when": "view == ralph.stories && ralph.loopRunning",
+          "group": "navigation@1"
+        },
+        {
+          "command": "ralph.addStory",
+          "when": "view == ralph.stories",
+          "group": "navigation@2"
+        },
+        {
+          "command": "ralph.refresh",
+          "when": "view == ralph.stories",
+          "group": "navigation@3"
+        },
+        {
+          "command": "ralph.showDashboard",
+          "when": "view == ralph.stories",
+          "group": "navigation@4"
+        },
+        {
+          "command": "ralph.archivePrd",
+          "when": "view == ralph.stories",
+          "group": "overflow@1"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "ralph.markStoryDone",
+          "when": "view == ralph.stories && viewItem == story-pending",
+          "group": "inline@1"
+        },
+        {
+          "command": "ralph.markStoryPending",
+          "when": "view == ralph.stories && viewItem == story-done",
+          "group": "inline@1"
+        },
+        {
+          "command": "ralph.editStory",
+          "when": "view == ralph.stories && viewItem =~ /^story-/",
+          "group": "inline@2"
+        },
+        {
+          "command": "ralph.removeStory",
+          "when": "view == ralph.stories && viewItem =~ /^story-/",
+          "group": "context@1"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Ralph",
+      "properties": {
+        "ralph.maxIterations": {
+          "type": "number",
+          "default": 30,
+          "description": "Maximum iterations for the Ralph loop"
+        },
+        "ralph.tool": {
+          "type": "string",
+          "enum": ["claude", "amp"],
+          "default": "claude",
+          "description": "Agent tool to use"
+        },
+        "ralph.autoRefreshInterval": {
+          "type": "number",
+          "default": 3000,
+          "description": "Auto-refresh interval in milliseconds"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package --allow-missing-repository"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.3",
+    "@vscode/vsce": "^2.22.0"
+  }
+}

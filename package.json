@@ -1,0 +1,44 @@
+{
+  "name": "ralph-cli",
+  "version": "1.0.0",
+  "description": "Autonomous AI agent loop for Claude Code — iterates through PRD stories until all pass",
+  "type": "module",
+  "bin": {
+    "ralph": "./bin/ralph.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "ralph/CLAUDE.md.template",
+    "ralph/prd.json.example",
+    "skills/",
+    "agents/",
+    "rules/"
+  ],
+  "scripts": {
+    "test": "node --test src/**/*.test.js",
+    "lint": "node --check src/**/*.js bin/ralph.js",
+    "vscode:build": "cd vscode && npm run compile",
+    "vscode:package": "cd vscode && npx @vscode/vsce package --allow-missing-repository",
+    "vscode:install": "cd vscode && npx @vscode/vsce package --allow-missing-repository && code --install-extension ralph-vscode-*.vsix"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "ai",
+    "agent",
+    "autonomous",
+    "prd",
+    "cli"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/heimo/claude-ralph.git"
+  },
+  "author": "heimo",
+  "homepage": "https://github.com/heimo/claude-ralph#readme"
+}

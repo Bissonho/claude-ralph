@@ -1,0 +1,6 @@
+node_modules/
+.ralph/status.txt
+.ralph/.lock
+.ralph/.last-branch
+.ralph/.research_context.md
+*.tgz

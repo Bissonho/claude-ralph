@@ -4,3 +4,5 @@ status.txt
 .research_context.md
 config.json
 .openrouter-models-cache.json
+activity.jsonl
+logs/

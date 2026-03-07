@@ -154,6 +154,11 @@
         "command": "ralph.openStoryLog",
         "title": "Ralph: Open Story Log",
         "icon": "$(output)"
+      },
+      {
+        "command": "ralph.showHub",
+        "title": "Ralph: Show Hub Dashboard",
+        "icon": "$(server)"
       }
     ],
     "menus": {
@@ -234,6 +239,11 @@
           "command": "ralph.openRouterSettings",
           "when": "view == ralph.stories",
           "group": "navigation@5"
+        },
+        {
+          "command": "ralph.showHub",
+          "when": "view == ralph.stories",
+          "group": "navigation@6"
         },
         {
           "command": "ralph.archivePrd",

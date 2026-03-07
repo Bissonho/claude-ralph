@@ -8,6 +8,7 @@ import { WorktreesTreeProvider, WorktreeItem } from './views/worktrees-tree';
 import { ProgressViewProvider } from './views/progress-panel';
 import { DashboardPanel } from './views/dashboard-panel';
 import { OpenRouterPanel } from './views/openrouter-panel';
+import { HubPanel } from './views/hub-panel';
 import { RalphStatusBar } from './views/status-bar';
 import { startLoop, stopLoop, pauseLoop, skipStory, setConfig as setLoopConfig } from './commands/loop';
 import { addStory, markStoryDone, markStoryPending, removeStory, editStory, showStoryDetail } from './commands/stories';
@@ -159,6 +160,9 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand('ralph.openRouterSettings', () => {
       OpenRouterPanel.show(context.extensionUri, config);
+    }),
+    vscode.commands.registerCommand('ralph.showHub', () => {
+      HubPanel.show(context.extensionUri);
     }),
     vscode.commands.registerCommand('ralph.createWorktree', async () => {
       const name = await vscode.window.showInputBox({

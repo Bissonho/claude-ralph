@@ -74,6 +74,12 @@ Started: 2026-03-07T15:48:58.002Z
 - Learnings: WorktreesTreeProvider follows same pattern as StoriesTreeProvider (EventEmitter, refresh(), updateConfig()); enrichWorktreeEntry reads each worktree's .ralph/status.txt and .ralph/prd.json for live status and progress; worktree commands delegate to ralph CLI via terminal.sendText() matching the loop start/stop pattern; process.kill(pid, 0) throws if process doesn't exist — catch to detect not-running
 ---
 
+## 2026-03-08 - US-014
+- Implemented: calculateEta(data, loopStartedAt) in src/utils.js; groups completed story durationMs by 'effort/model' category, calculates averages, uses fallback defaults (low/sonnet=2m..high/opus=20m) for unknown categories; returns { elapsedMs, etaMs, etaFormatted, avgPerCategory }. In run.js: loopStartedAt tracked at loop entry, startedAt written via config.updateStory() before agent spawn, completedAt+durationMs written after; formatStatus() extended with '| elapsed Xm | eta ~Ym' appended when loopStartedAt provided.
+- Files: src/utils.js (calculateEta added), src/utils.test.js (new, 9 tests), src/commands/run.js (timing + formatStatus update)
+- Learnings: ETA_DEFAULTS constant map keyed by 'effort/model' string is clean and extensible; openrouter: prefix stripped to 'sonnet' for category grouping since effort matters more than specific model; formatStatus loopStartedAt optional param keeps backward compat for callers that don't pass it
+---
+
 ## 2026-03-07 - US-013
 - Implemented: Replaced progress-panel.ts with Live Activity Panel webview: current story card (id, title, model, effort, iteration, elapsed time), scrollable activity log reading activity.jsonl with auto-scroll and color-coded event icons (story_start, agent_spawn, agent_done, quality_check, story_done, feedback_received, loop_start, loop_end), feedback text input writing to .ralph/.feedback, control buttons (Pause SIGTSTP, Skip Story, Stop Loop SIGINT), completed stories history with duration and View Log button opening .ralph/logs/<storyId>.log; added pauseLoop() and skipStory() to loop.ts; registered ralph.pauseLoop, ralph.skipStory, ralph.openStoryLog commands in extension.ts and package.json; FileSystemWatcher on activity.jsonl for auto-refresh
 - Files: vscode/src/views/progress-panel.ts (rewritten), vscode/src/extension.ts (modified), vscode/src/commands/loop.ts (modified), vscode/package.json (modified)

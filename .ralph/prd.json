@@ -309,7 +309,7 @@
         "calculateEta returns { elapsedMs, etaMs, etaFormatted, avgPerCategory }"
       ],
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "tddType": "testable",
       "effort": "medium",
       "model": "sonnet",

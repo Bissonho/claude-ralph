@@ -56,6 +56,12 @@ Started: 2026-03-07T15:48:58.002Z
 - Learnings: DashboardPanel singleton pattern: static show() checks instance, static instance field, private constructor, onDidDispose clears instance; webview communicates with extension via postMessage/onDidReceiveMessage; VS Code theme variables (--vscode-*) ensure consistent styling; panel reads/writes config.json via RalphConfig.loadGlobalConfig()/saveGlobalConfig()
 ---
 
+## 2026-03-08 - US-011
+- Implemented: ActivityLogger class in src/core/activity.js with emit(), startStoryLog(), appendStoryLog(), readStoryLog(), readActivity(), clear(); creates .ralph/logs/ dir on construction; JSONL format with { ts, type, ...data }; added activity.jsonl and logs/ to .ralph/.gitignore
+- Files: src/core/activity.js (new), src/core/activity.test.js (new), .ralph/.gitignore (modified)
+- Learnings: createWriteStream with flags:'w' cleanly truncates on startStoryLog; appendFileSync is sync and works well wrapped in a Promise for appendStoryLog; split('\n').filter(Boolean) handles trailing newlines in JSONL reading; all 10 tests pass, 64 total
+---
+
 ## 2026-03-07 - US-010
 - Implemented: WorktreesTreeProvider (TreeDataProvider) in vscode/src/views/worktrees-tree.ts showing worktrees with name, branch, status icon (idle/running/complete), progress percentage; context menus for Start/Stop/Merge/Open Folder/Remove; header Create Worktree button with multi-step input (name, branch); registered ralph.worktrees view in package.json; added loadWorktrees() and enrichWorktreeEntry() to RalphConfig; WorktreeEntry/WorktreeInfo interfaces in types.ts; worktrees.json FileSystemWatcher + poll-based auto-refresh; 6 worktree commands wired in extension.ts
 - Files: vscode/src/views/worktrees-tree.ts (new), vscode/src/ralph/types.ts (modified), vscode/src/ralph/config.ts (modified), vscode/package.json (modified), vscode/src/extension.ts (modified)

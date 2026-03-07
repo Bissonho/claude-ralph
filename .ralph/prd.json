@@ -410,7 +410,7 @@
         "Show notification when a loop completes or fails (poll /api/status or listen to SSE)"
       ],
       "priority": 18,
-      "passes": false,
+      "passes": true,
       "tddType": "frontend",
       "effort": "medium",
       "model": "sonnet",

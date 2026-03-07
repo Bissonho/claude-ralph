@@ -92,6 +92,12 @@ Started: 2026-03-07T15:48:58.002Z
 - Learnings: process.env.RALPH_TEST_HOME pattern enables overriding homedir in tests without monkey-patching os.homedir; read-modify-write (read fresh in register/deregister) handles concurrent access; GlobalRegistry constructor accepts optional homeDir param for testability
 ---
 
+## 2026-03-08 - US-018
+- Implemented: HubPanel singleton class in vscode/src/views/hub-panel.ts; checks http://localhost:3742/api/status on open, shows start prompt if hub not running, loads and patches hub HTML for webview rendering; postMessage bridge forwards feedback/control actions to hub API; poll-based auto-reconnect (every 3s) detects hub start/stop and shows VS Code notifications on loop complete/fail; registered ralph.showHub command in extension.ts; added Hub button ($(server)) to Stories view title bar at navigation@6; vscode.env.openExternal fallback in fallback UI
+- Files: vscode/src/views/hub-panel.ts (new), vscode/src/extension.ts (modified), vscode/package.json (modified)
+- Learnings: AbortSignal.timeout() is available in Node 18+ / VS Code webview context for fetch timeouts; TypeScript requires `as Type` cast for `res.json()` (returns `unknown`); patchHubHtml() regex rewrites relative /path URLs to absolute hub URLs — essential since webview cannot reach relative paths; HubPanel.show() takes only extensionUri (no config needed — hub is project-agnostic)
+---
+
 ## 2026-03-08 - US-015
 - Implemented: elapsed/eta fields in StatusInfo interface (types.ts); parseStatus() updated to extract 'elapsed Xm' and 'eta ~Ym' from parts[5]/parts[6] of status.txt; CLI status.js shows elapsed+ETA line when loop is running; status-bar.ts appends elapsed to status bar text and adds elapsed+ETA to tooltip; progress-panel.ts adds timing-row card between progress bar and current story card with elapsed/ETA badges, hidden when not running or no timing data
 - Files: src/commands/status.js, vscode/src/ralph/types.ts, vscode/src/ralph/config.ts, vscode/src/views/status-bar.ts, vscode/src/views/progress-panel.ts

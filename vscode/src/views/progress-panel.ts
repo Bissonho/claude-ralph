@@ -549,6 +549,30 @@ export class ProgressViewProvider implements vscode.WebviewViewProvider {
     font-size: 11px;
     padding: 8px;
   }
+
+  /* Timing row */
+  .timing-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .timing-item {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    font-size: 11px;
+  }
+  .timing-label {
+    color: var(--vscode-descriptionForeground);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .timing-value {
+    color: var(--vscode-foreground);
+    font-family: var(--vscode-editor-font-family);
+    font-weight: 600;
+  }
 </style>
 </head>
 <body>
@@ -560,6 +584,14 @@ export class ProgressViewProvider implements vscode.WebviewViewProvider {
     </div>
     <span class="progress-text">${progress.done}/${progress.total} (${progress.pct}%)</span>
   </div>
+
+  <!-- Timing row -->
+  ${isRunning && (status?.elapsed || status?.eta) ? `
+  <div class="timing-row">
+    ${status?.elapsed ? `<span class="timing-item"><span class="timing-label">Elapsed</span> <span class="timing-value">${this.escapeHtml(status.elapsed)}</span></span>` : ''}
+    ${status?.eta ? `<span class="timing-item"><span class="timing-label">ETA</span> <span class="timing-value">${this.escapeHtml(status.eta)}</span></span>` : ''}
+  </div>
+  ` : ''}
 
   <!-- Current Story Card -->
   ${currentStory && isRunning ? `

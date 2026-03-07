@@ -43,6 +43,8 @@ export interface StatusInfo {
   iteration: number;
   maxIterations: number;
   time: string;
+  elapsed?: string;
+  eta?: string;
   raw: string;
 }
 

@@ -315,10 +315,22 @@ export class RalphConfig {
   }
 
   private parseStatus(raw: string): StatusInfo {
-    // Format: done/total (pct%) | story_id | status | iter x/y | time
+    // Format: done/total (pct%) | story_id | status | iter x/y | time [| elapsed Xm | eta ~Ym]
     const parts = raw.split(' | ');
     const progressMatch = parts[0]?.match(/(\d+)\/(\d+)\s*\((\d+)%\)/);
     const iterMatch = parts[3]?.match(/iter (\d+)\/(\d+)/);
+
+    // Parse optional elapsed/eta fields (parts[5] = "elapsed Xm", parts[6] = "eta ~Ym")
+    let elapsed: string | undefined;
+    let eta: string | undefined;
+    if (parts[5]) {
+      const elapsedMatch = parts[5].trim().match(/^elapsed\s+(.+)$/);
+      if (elapsedMatch) { elapsed = elapsedMatch[1]; }
+    }
+    if (parts[6]) {
+      const etaMatch = parts[6].trim().match(/^eta\s+(.+)$/);
+      if (etaMatch) { eta = etaMatch[1]; }
+    }
 
     return {
       done: progressMatch ? parseInt(progressMatch[1], 10) : 0,
@@ -329,6 +341,8 @@ export class RalphConfig {
       iteration: iterMatch ? parseInt(iterMatch[1], 10) : 0,
       maxIterations: iterMatch ? parseInt(iterMatch[2], 10) : 0,
       time: parts[4]?.trim() || '',
+      elapsed,
+      eta,
       raw,
     };
   }

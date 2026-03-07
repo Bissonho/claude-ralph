@@ -33,6 +33,10 @@
         {
           "id": "ralph.stories",
           "name": "Stories"
+        },
+        {
+          "id": "ralph.worktrees",
+          "name": "Worktrees"
         }
       ]
     },
@@ -105,9 +109,86 @@
         "command": "ralph.openRouterSettings",
         "title": "Ralph: OpenRouter Settings",
         "icon": "$(settings-gear)"
+      },
+      {
+        "command": "ralph.createWorktree",
+        "title": "Ralph: Create Worktree",
+        "icon": "$(add)"
+      },
+      {
+        "command": "ralph.removeWorktree",
+        "title": "Remove Worktree",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "ralph.startWorktreeLoop",
+        "title": "Start Loop",
+        "icon": "$(play)"
+      },
+      {
+        "command": "ralph.stopWorktreeLoop",
+        "title": "Stop Loop",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "ralph.mergeWorktree",
+        "title": "Merge Worktree",
+        "icon": "$(git-merge)"
+      },
+      {
+        "command": "ralph.openWorktreeFolder",
+        "title": "Open Folder",
+        "icon": "$(folder-opened)"
       }
     ],
     "menus": {
+      "view/item/context": [
+        {
+          "command": "ralph.markStoryDone",
+          "when": "view == ralph.stories && viewItem == story-pending",
+          "group": "inline@1"
+        },
+        {
+          "command": "ralph.markStoryPending",
+          "when": "view == ralph.stories && viewItem == story-done",
+          "group": "inline@1"
+        },
+        {
+          "command": "ralph.editStory",
+          "when": "view == ralph.stories && viewItem =~ /^story-/",
+          "group": "inline@2"
+        },
+        {
+          "command": "ralph.removeStory",
+          "when": "view == ralph.stories && viewItem =~ /^story-/",
+          "group": "context@1"
+        },
+        {
+          "command": "ralph.startWorktreeLoop",
+          "when": "view == ralph.worktrees && viewItem == worktree-idle",
+          "group": "inline@1"
+        },
+        {
+          "command": "ralph.stopWorktreeLoop",
+          "when": "view == ralph.worktrees && viewItem == worktree-running",
+          "group": "inline@1"
+        },
+        {
+          "command": "ralph.mergeWorktree",
+          "when": "view == ralph.worktrees && viewItem == worktree-complete",
+          "group": "inline@1"
+        },
+        {
+          "command": "ralph.openWorktreeFolder",
+          "when": "view == ralph.worktrees && viewItem =~ /^worktree-/",
+          "group": "inline@2"
+        },
+        {
+          "command": "ralph.removeWorktree",
+          "when": "view == ralph.worktrees && viewItem =~ /^worktree-/",
+          "group": "context@1"
+        }
+      ],
       "view/title": [
         {
           "command": "ralph.startLoop",
@@ -143,28 +224,16 @@
           "command": "ralph.archivePrd",
           "when": "view == ralph.stories",
           "group": "overflow@1"
-        }
-      ],
-      "view/item/context": [
-        {
-          "command": "ralph.markStoryDone",
-          "when": "view == ralph.stories && viewItem == story-pending",
-          "group": "inline@1"
         },
         {
-          "command": "ralph.markStoryPending",
-          "when": "view == ralph.stories && viewItem == story-done",
-          "group": "inline@1"
+          "command": "ralph.createWorktree",
+          "when": "view == ralph.worktrees",
+          "group": "navigation@1"
         },
         {
-          "command": "ralph.editStory",
-          "when": "view == ralph.stories && viewItem =~ /^story-/",
-          "group": "inline@2"
-        },
-        {
-          "command": "ralph.removeStory",
-          "when": "view == ralph.stories && viewItem =~ /^story-/",
-          "group": "context@1"
+          "command": "ralph.refresh",
+          "when": "view == ralph.worktrees",
+          "group": "navigation@2"
         }
       ]
     },

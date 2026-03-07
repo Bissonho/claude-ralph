@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { PrdData, Progress, StatusInfo, UserStory, GlobalConfig } from './types';
+import { PrdData, Progress, StatusInfo, UserStory, GlobalConfig, WorktreeEntry, WorktreeInfo } from './types';
 
 export class RalphConfig {
   readonly prdDir: string;
@@ -9,6 +9,7 @@ export class RalphConfig {
   readonly progressFile: string;
   readonly lockFile: string;
   readonly configFile: string;
+  readonly worktreesFile: string;
 
   constructor(prdDir: string) {
     this.prdDir = prdDir;
@@ -17,6 +18,7 @@ export class RalphConfig {
     this.progressFile = path.join(prdDir, 'progress.txt');
     this.lockFile = path.join(prdDir, '.lock');
     this.configFile = path.join(prdDir, 'config.json');
+    this.worktreesFile = path.join(prdDir, 'worktrees.json');
   }
 
   exists(): boolean {
@@ -247,6 +249,69 @@ export class RalphConfig {
 
   saveGlobalConfig(data: GlobalConfig): void {
     fs.writeFileSync(this.configFile, JSON.stringify(data, null, 2) + '\n');
+  }
+
+  loadWorktrees(): WorktreeInfo[] {
+    if (!fs.existsSync(this.worktreesFile)) {
+      return [];
+    }
+    try {
+      const entries: WorktreeEntry[] = JSON.parse(fs.readFileSync(this.worktreesFile, 'utf-8'));
+      return entries.map(entry => this.enrichWorktreeEntry(entry));
+    } catch {
+      return [];
+    }
+  }
+
+  private enrichWorktreeEntry(entry: WorktreeEntry): WorktreeInfo {
+    const ralphDir = path.join(entry.path, '.ralph');
+    let status: 'idle' | 'running' | 'complete' = 'idle';
+    let progress: Progress | undefined;
+
+    // Check status
+    const statusFile = path.join(ralphDir, 'status.txt');
+    if (fs.existsSync(statusFile)) {
+      const raw = fs.readFileSync(statusFile, 'utf-8').trim();
+      if (raw === 'complete') {
+        status = 'complete';
+      }
+    }
+
+    // Check lock file for running
+    if (status !== 'complete') {
+      const lockFile = path.join(ralphDir, '.lock');
+      if (fs.existsSync(lockFile)) {
+        try {
+          const pid = parseInt(fs.readFileSync(lockFile, 'utf-8').trim(), 10);
+          if (!isNaN(pid)) {
+            process.kill(pid, 0);
+            status = 'running';
+          }
+        } catch {
+          // process not running
+        }
+      }
+    }
+
+    // Read progress from worktree's prd.json
+    const prdFile = path.join(ralphDir, 'prd.json');
+    if (fs.existsSync(prdFile)) {
+      try {
+        const data: PrdData = JSON.parse(fs.readFileSync(prdFile, 'utf-8'));
+        const total = data.userStories.length;
+        const done = data.userStories.filter(s => s.passes).length;
+        progress = {
+          total,
+          done,
+          pending: total - done,
+          pct: total > 0 ? Math.round((done / total) * 100) : 0,
+        };
+      } catch {
+        // ignore
+      }
+    }
+
+    return { ...entry, status, progress };
   }
 
   private parseStatus(raw: string): StatusInfo {

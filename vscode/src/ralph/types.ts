@@ -61,3 +61,15 @@ export interface OpenRouterConfig {
 export interface GlobalConfig {
   openrouter?: OpenRouterConfig;
 }
+
+export interface WorktreeEntry {
+  name: string;
+  branch: string;
+  path: string;
+  createdAt: string;
+}
+
+export interface WorktreeInfo extends WorktreeEntry {
+  status: 'idle' | 'running' | 'complete';
+  progress?: Progress;
+}

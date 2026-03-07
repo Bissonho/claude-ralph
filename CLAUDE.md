@@ -91,6 +91,25 @@ setTimeout(() => child.kill(), 2000);
 
 Expected: `Content-Length: 36\r\n\r\n{"jsonrpc":"2.0","id":1,"result":{}}`
 
+## Development Workflow
+
+**ALWAYS after making changes:**
+1. Commit changes to the repo
+2. Push to remote (`git push`)
+3. Bump version in `package.json` when releasing (semver)
+4. Reinstall globally: `npm install -g .` (so the `ralph` command uses the latest code)
+
+**NEVER** modify the globally installed ralph code directly (`/opt/homebrew/lib/node_modules/ralph-cli/`). Always modify the source code in this repo and reinstall.
+
+## Multi-Project Support
+
+Ralph supports running on multiple projects simultaneously on the same machine. Each project has its own:
+- `.ralph/` directory with its own `prd.json`, `progress.txt`, `status.txt`
+- `.mcp.json` config pointing to the ralph binary
+- Lock file (`.ralph/.lock`) preventing concurrent runs on the same project
+
+The MCP server uses `findPrdDir()` which resolves `.ralph/` relative to `process.cwd()`, so each Claude Code session (opened in a different project) gets its own isolated Ralph instance.
+
 ## Commit Convention
 ```
 type: short description

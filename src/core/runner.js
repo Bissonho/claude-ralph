@@ -8,7 +8,11 @@ export function spawnAgent(prompt, story, tool = 'claude') {
   const effort = story.effort || 'medium';
 
   if (tool === 'amp') {
-    return spawnProcess('amp', ['--dangerously-allow-all'], prompt, {});
+    const ampEnv = { ...process.env };
+    delete ampEnv.CLAUDECODE;
+    delete ampEnv.CLAUDE_CODE_SSE_PORT;
+    delete ampEnv.CLAUDE_CODE_ENTRYPOINT;
+    return spawnProcess('amp', ['--dangerously-allow-all'], prompt, ampEnv);
   }
 
   if (isOpenRouterModel(model)) {
@@ -25,6 +29,8 @@ export function spawnAgent(prompt, story, tool = 'claude') {
 
   const env = { ...process.env };
   delete env.CLAUDECODE;
+  delete env.CLAUDE_CODE_SSE_PORT;
+  delete env.CLAUDE_CODE_ENTRYPOINT;
 
   return spawnProcess('claude', args, prompt, env);
 }
@@ -37,6 +43,8 @@ function spawnOpenRouter(prompt, model, effort) {
     warn('OPENROUTER_API_KEY not set. Falling back to claude-sonnet-4-6');
     const env = { ...process.env };
     delete env.CLAUDECODE;
+    delete env.CLAUDE_CODE_SSE_PORT;
+    delete env.CLAUDE_CODE_ENTRYPOINT;
     return spawnProcess('claude', [
       '--model', 'claude-sonnet-4-6',
       '--effort', effort,
@@ -51,6 +59,8 @@ function spawnOpenRouter(prompt, model, effort) {
     ANTHROPIC_API_KEY: apiKey,
   };
   delete env.CLAUDECODE;
+  delete env.CLAUDE_CODE_SSE_PORT;
+  delete env.CLAUDE_CODE_ENTRYPOINT;
 
   return spawnProcess('claude', [
     '--model', orModel,
@@ -63,9 +73,8 @@ function spawnOpenRouter(prompt, model, effort) {
 function spawnProcess(command, args, stdin, env) {
   return new Promise((resolve, reject) => {
     const proc = spawn(command, args, {
-      env: { ...process.env, ...env },
+      env,
       stdio: ['pipe', 'pipe', 'inherit'],
-      maxBuffer: 100 * 1024 * 1024,
     });
 
     let output = '';
@@ -98,7 +107,7 @@ function spawnProcess(command, args, stdin, env) {
     });
 
     // Write prompt to stdin
-    proc.stdin.write(prompt);
+    proc.stdin.write(stdin);
     proc.stdin.end();
 
     // Graceful shutdown handler

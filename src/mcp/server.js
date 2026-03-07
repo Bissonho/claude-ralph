@@ -4,7 +4,6 @@
 
 import { Config } from '../core/config.js';
 import { getCompactStatus } from '../commands/status.js';
-import { run } from '../commands/run.js';
 import { findPrdDir } from '../utils.js';
 
 // --- Stdio Transport (Content-Length framing, LSP-style) ---
@@ -22,12 +21,17 @@ class StdioTransport {
   start() {
     process.stdin.resume();
     process.stdin.on('data', (chunk) => {
-      this.buffer = Buffer.concat([this.buffer, chunk]);
+      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      this.buffer = Buffer.concat([this.buffer, buf]);
       this._drain();
+    });
+
+    process.stdin.on('end', () => {
+      process.exit(0);
     });
   }
 
-  _drain() {
+  async _drain() {
     while (true) {
       const idx = this.buffer.indexOf('\r\n\r\n');
       if (idx === -1) break;
@@ -48,15 +52,22 @@ class StdioTransport {
       this.buffer = this.buffer.subarray(bodyStart + len);
 
       try {
-        this._handler?.(JSON.parse(body));
-      } catch { /* ignore parse errors */ }
+        const msg = JSON.parse(body);
+        await this._handler?.(msg);
+      } catch (e) {
+        process.stderr.write(`[ralph-mcp] handler error: ${e.message}\n`);
+      }
     }
   }
 
   send(msg) {
     const body = JSON.stringify(msg);
     const frame = `Content-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`;
-    process.stdout.write(frame);
+    try {
+      process.stdout.write(frame);
+    } catch {
+      // stdout closed
+    }
   }
 }
 
@@ -126,14 +137,14 @@ const TOOLS = [
   },
   {
     name: 'ralph_reorder_stories',
-    description: 'Reorder story priorities. Pass an array of story IDs in the desired execution order. Priorities will be reassigned sequentially (1, 2, 3...). Use when the user asks to change execution order, move a story up/down, or execute a story before/after another.',
+    description: 'Reorder story priorities. Pass an array of story IDs in the desired execution order.',
     inputSchema: {
       type: 'object',
       properties: {
         order: {
           type: 'array',
           items: { type: 'string' },
-          description: 'Story IDs in desired execution order (e.g. ["US-003", "US-001", "US-002"])',
+          description: 'Story IDs in desired execution order',
         },
       },
       required: ['order'],
@@ -154,11 +165,11 @@ const TOOLS = [
   },
   {
     name: 'ralph_add_context',
-    description: 'Add a codebase pattern or context note to progress.txt. Ralph reads these at the start of each iteration.',
+    description: 'Add a codebase pattern or context note to progress.txt.',
     inputSchema: {
       type: 'object',
       properties: {
-        pattern: { type: 'string', description: 'Pattern or context to add (e.g. "Auth uses JWT tokens stored in HttpOnly cookies")' },
+        pattern: { type: 'string', description: 'Pattern or context to add' },
       },
       required: ['pattern'],
       additionalProperties: false,
@@ -183,22 +194,22 @@ const TOOLS = [
   },
   {
     name: 'ralph_check_prd',
-    description: 'Check if a PRD already exists and its state. ALWAYS call this BEFORE creating stories or a new PRD. Returns: state (empty/pending/complete), project name, progress. If state is "pending" or "complete", you MUST ask the user whether to: (a) add stories to the existing PRD, or (b) archive it and start a new one.',
+    description: 'Check if a PRD already exists and its state. ALWAYS call this BEFORE creating stories or a new PRD.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
   },
   {
     name: 'ralph_archive',
-    description: 'Archive the current PRD (prd.json + progress.txt) to .ralph/archive/ and reset for a new PRD. Codebase Patterns from progress.txt are carried forward. Call ralph_check_prd first to confirm with the user.',
+    description: 'Archive the current PRD and reset for a new one. Codebase Patterns are carried forward.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
   },
   {
     name: 'ralph_create_prd',
-    description: 'Create a new prd.json with full PRD data. Use after ralph_archive or when state is "empty". Provide the complete PRD object with project, branchName, description, qualityChecks, and userStories.',
+    description: 'Create a new prd.json with full PRD data. Use after ralph_archive or when state is "empty".',
     inputSchema: {
       type: 'object',
       properties: {
         project: { type: 'string', description: 'Project name' },
-        branchName: { type: 'string', description: 'Git branch name (e.g. ralph/feature-name)' },
+        branchName: { type: 'string', description: 'Git branch name' },
         description: { type: 'string', description: 'Project/feature description' },
         qualityChecks: {
           type: 'array',
@@ -210,7 +221,6 @@ const TOOLS = [
             },
             required: ['name', 'command'],
           },
-          description: 'Quality check commands that must pass',
         },
         userStories: {
           type: 'array',
@@ -229,7 +239,6 @@ const TOOLS = [
             },
             required: ['id', 'title'],
           },
-          description: 'Array of user stories',
         },
       },
       required: ['project', 'branchName', 'userStories'],
@@ -287,22 +296,18 @@ async function handleTool(name, args) {
       const data = config.load();
       const order = args.order;
 
-      // Validate all IDs exist
       const storyIds = new Set(data.userStories.map((s) => s.id));
       const missing = order.filter((id) => !storyIds.has(id));
       if (missing.length > 0) {
         return { ok: false, message: `Stories not found: ${missing.join(', ')}` };
       }
 
-      // Reassign priorities: stories in order get 1, 2, 3...
-      // Stories NOT in the order array keep their relative order after
       let priority = 1;
       for (const id of order) {
         const story = data.userStories.find((s) => s.id === id);
         if (story) { story.priority = priority++; }
       }
 
-      // Assign remaining stories after the ordered ones
       const orderedSet = new Set(order);
       const remaining = data.userStories
         .filter((s) => !orderedSet.has(s.id))
@@ -331,7 +336,6 @@ async function handleTool(name, args) {
       const progress = config.readProgress();
       const patternLine = `- ${args.pattern}`;
 
-      // Insert into Codebase Patterns section
       if (progress.includes('## Codebase Patterns')) {
         const updated = progress.replace(
           '## Codebase Patterns\n',
@@ -350,8 +354,7 @@ async function handleTool(name, args) {
       const maxIter = args.maxIterations || 30;
       const toolArg = args.tool || 'claude';
 
-      // Spawn `ralph run` as detached background process
-      const child = spawn('npx', ['ralph-cli', 'run', '--max-iterations', String(maxIter), '--tool', toolArg], {
+      const child = spawn('ralph', ['run', '--max-iterations', String(maxIter), '--tool', toolArg], {
         detached: true,
         stdio: 'ignore',
         cwd: process.cwd(),
@@ -371,38 +374,28 @@ async function handleTool(name, args) {
       const config = getConfig();
       const state = config.getPrdState();
       if (state === 'empty') {
-        return {
-          state: 'empty',
-          message: 'No PRD exists. You can create a new one with ralph_create_prd.',
-        };
+        return { state: 'empty', message: 'No PRD exists. Create one with ralph_create_prd.' };
       }
       const summary = config.getPrdSummary();
       if (state === 'complete') {
         return {
-          state: 'complete',
-          ...summary,
-          message: `PRD "${summary.project}" is COMPLETE (${summary.total}/${summary.total} stories done). Ask the user: archive this and start a new PRD, or add more stories to the existing one?`,
+          state: 'complete', ...summary,
+          message: `PRD "${summary.project}" is COMPLETE (${summary.total}/${summary.total} done). Ask: archive and start new, or add more stories?`,
         };
       }
       return {
-        state: 'pending',
-        ...summary,
-        message: `PRD "${summary.project}" is IN PROGRESS (${summary.done}/${summary.total} done, ${summary.pending} pending). Ask the user: add stories to this PRD, or archive it and start fresh?`,
+        state: 'pending', ...summary,
+        message: `PRD "${summary.project}" IN PROGRESS (${summary.done}/${summary.total} done). Ask: add stories, or archive and start fresh?`,
       };
     }
 
     case 'ralph_archive': {
       const config = getConfig();
-      const state = config.getPrdState();
-      if (state === 'empty') {
+      if (config.getPrdState() === 'empty') {
         return { ok: false, message: 'No PRD to archive.' };
       }
       const result = config.archiveCurrent();
-      return {
-        ok: true,
-        ...result,
-        message: `Archived "${result.project}" to ${result.archivedTo}. Codebase patterns ${result.patternsCarried ? 'carried forward' : 'none found'}. Ready for new PRD.`,
-      };
+      return { ok: true, ...result };
     }
 
     case 'ralph_create_prd': {
@@ -411,10 +404,8 @@ async function handleTool(name, args) {
       if (state !== 'empty') {
         const summary = config.getPrdSummary();
         return {
-          ok: false,
-          state,
-          ...summary,
-          message: `PRD already exists: "${summary.project}" (${summary.state}). Call ralph_archive first to archive it, or use ralph_add_story to add to the existing PRD.`,
+          ok: false, state, ...summary,
+          message: `PRD already exists. Call ralph_archive first, or use ralph_add_story.`,
         };
       }
       const prdData = {
@@ -436,11 +427,7 @@ async function handleTool(name, args) {
         })),
       };
       const result = config.createPrd(prdData);
-      return {
-        ok: true,
-        ...result,
-        message: `Created PRD "${args.project}" with ${result.stories} stories on branch ${args.branchName}.`,
-      };
+      return { ok: true, ...result };
     }
 
     default:
@@ -453,91 +440,117 @@ async function handleTool(name, args) {
 export function startMcpServer() {
   const transport = new StdioTransport();
 
+  // Prevent stdout pollution from console.log in tool handlers
+  const originalError = console.error;
+  console.log = (...args) => originalError(...args);
+  console.warn = (...args) => originalError(...args);
+  console.info = (...args) => originalError(...args);
+
+  // Catch unhandled rejections to prevent server crash
+  process.on('unhandledRejection', (err) => {
+    process.stderr.write(`[ralph-mcp] unhandled rejection: ${err?.message || err}\n`);
+  });
+
   transport.onMessage(async (msg) => {
-    // Handle JSON-RPC
-    if (msg.method === 'initialize') {
-      transport.send({
-        jsonrpc: '2.0',
-        id: msg.id,
-        result: {
-          protocolVersion: '2024-11-05',
-          capabilities: { tools: {} },
-          serverInfo: { name: 'ralph', version: '1.0.0' },
-        },
-      });
+    // Notifications (no id) — never send a response
+    if (!msg.id && msg.id !== 0) {
       return;
     }
 
-    if (msg.method === 'notifications/initialized' || msg.method === 'notifications/cancelled') {
-      return; // no response for notifications
-    }
-
-    if (msg.method === 'ping') {
-      transport.send({ jsonrpc: '2.0', id: msg.id, result: {} });
-      return;
-    }
-
-    if (msg.method === 'tools/list') {
-      transport.send({
-        jsonrpc: '2.0',
-        id: msg.id,
-        result: {
-          tools: TOOLS.map((t) => ({
-            name: t.name,
-            description: t.description,
-            inputSchema: t.inputSchema,
-          })),
-        },
-      });
-      return;
-    }
-
-    if (msg.method === 'tools/call') {
-      const toolName = msg.params?.name;
-      const toolArgs = msg.params?.arguments || {};
-
-      try {
-        const result = await handleTool(toolName, toolArgs);
+    try {
+      if (msg.method === 'initialize') {
         transport.send({
           jsonrpc: '2.0',
           id: msg.id,
           result: {
-            content: [{
-              type: 'text',
-              text: typeof result === 'string' ? result : JSON.stringify(result),
-            }],
+            protocolVersion: msg.params?.protocolVersion || '2024-11-05',
+            capabilities: {
+              tools: { listChanged: false },
+            },
+            serverInfo: { name: 'ralph', version: '1.0.0' },
           },
         });
-      } catch (e) {
-        transport.send({
-          jsonrpc: '2.0',
-          id: msg.id,
-          result: {
-            content: [{ type: 'text', text: `Error: ${e.message}` }],
-            isError: true,
-          },
-        });
+        return;
       }
-      return;
-    }
 
-    // Unknown method
-    if (msg.id) {
+      if (msg.method === 'ping') {
+        transport.send({ jsonrpc: '2.0', id: msg.id, result: {} });
+        return;
+      }
+
+      if (msg.method === 'tools/list') {
+        transport.send({
+          jsonrpc: '2.0',
+          id: msg.id,
+          result: {
+            tools: TOOLS.map((t) => ({
+              name: t.name,
+              description: t.description,
+              inputSchema: t.inputSchema,
+            })),
+          },
+        });
+        return;
+      }
+
+      if (msg.method === 'resources/list') {
+        transport.send({ jsonrpc: '2.0', id: msg.id, result: { resources: [] } });
+        return;
+      }
+
+      if (msg.method === 'resources/templates/list') {
+        transport.send({ jsonrpc: '2.0', id: msg.id, result: { resourceTemplates: [] } });
+        return;
+      }
+
+      if (msg.method === 'prompts/list') {
+        transport.send({ jsonrpc: '2.0', id: msg.id, result: { prompts: [] } });
+        return;
+      }
+
+      if (msg.method === 'tools/call') {
+        const toolName = msg.params?.name;
+        const toolArgs = msg.params?.arguments || {};
+
+        try {
+          const result = await handleTool(toolName, toolArgs);
+          transport.send({
+            jsonrpc: '2.0',
+            id: msg.id,
+            result: {
+              content: [{
+                type: 'text',
+                text: typeof result === 'string' ? result : JSON.stringify(result),
+              }],
+            },
+          });
+        } catch (e) {
+          transport.send({
+            jsonrpc: '2.0',
+            id: msg.id,
+            result: {
+              content: [{ type: 'text', text: `Error: ${e.message}` }],
+              isError: true,
+            },
+          });
+        }
+        return;
+      }
+
+      // Unknown method
       transport.send({
         jsonrpc: '2.0',
         id: msg.id,
         error: { code: -32601, message: `Method not found: ${msg.method}` },
       });
+    } catch (e) {
+      transport.send({
+        jsonrpc: '2.0',
+        id: msg.id,
+        error: { code: -32603, message: `Internal error: ${e.message}` },
+      });
     }
   });
 
-  // Prevent stdout pollution from console.log in tools
-  const originalLog = console.log;
-  const originalError = console.error;
-  console.log = (...args) => originalError(...args);
-
   transport.start();
-
-  // Keep process alive
-  process.stdin.resume();
 }

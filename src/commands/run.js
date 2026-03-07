@@ -9,6 +9,7 @@ export async function run(opts = {}) {
   const maxIterations = opts.maxIterations || 30;
   const tool = opts.tool || 'claude';
   const researchModel = opts.researchModel || 'perplexity/sonar-pro';
+  const dryRun = opts.dryRun || false;
 
   const prdDir = findPrdDir(opts.prdDir);
   const config = new Config(prdDir);
@@ -23,6 +24,22 @@ export async function run(opts = {}) {
 
   if (pending === 0) {
     success('All stories already complete!');
+    return;
+  }
+
+  // Dry run: print what would happen without spawning agents or acquiring lock
+  if (dryRun) {
+    console.log('');
+    console.log(`${c.bold}Dry run — no agents will be spawned${c.reset}`);
+    console.log('');
+    const pendingStories = data.userStories.filter((s) => !s.passes);
+    for (const story of pendingStories) {
+      const storyModel = story.model || 'sonnet';
+      const storyEffort = story.effort || 'medium';
+      console.log(`${c.bold}${story.id}${c.reset}: ${story.title}`);
+      console.log(`  Model: ${c.magenta}${storyModel}${c.reset} | Effort: ${storyEffort} | Tool: ${tool}`);
+      console.log('');
+    }
     return;
   }
 

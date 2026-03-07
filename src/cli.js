@@ -95,6 +95,9 @@ function parseRunArgs(args) {
       case '--research-model':
         opts.researchModel = args[++i];
         break;
+      case '--dry-run':
+        opts.dryRun = true;
+        break;
       default:
         // Allow bare number as max iterations
         if (/^\d+$/.test(args[i])) {

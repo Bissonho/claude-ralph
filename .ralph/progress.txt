@@ -27,3 +27,9 @@ Started: 2026-03-07T15:48:58.002Z
 - Files: src/mcp/server.js (modified)
 - Learnings: MCP tool handlers use try/catch via outer handleTool wrapper; dynamic import('../core/openrouter.js') works inside async switch cases; loadGlobalConfig/saveGlobalConfig pattern cleanly handles nested config upserts
 ---
+
+## 2026-03-07 - US-005
+- Implemented: WorktreeManager class with create/remove/list/getConfig/startRun/startAll/merge/ensureGitignore methods; registry CRUD via .ralph/worktrees.json; live status detection from lock/status files; pattern copying to worktree .ralph/
+- Files: src/core/worktree.js (new), src/core/worktree.test.js (new)
+- Learnings: Mockable internal methods (_exec, _spawn, _isProcessRunning) enable testing git/process operations without real git worktrees; Config class reuse for worktree .ralph/ dirs works cleanly; dirname(prdDir) reliably derives projectRoot from .ralph/ path
+---

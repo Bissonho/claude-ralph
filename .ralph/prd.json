@@ -108,7 +108,7 @@
         "Ensure .ralph-worktrees/ is added to project .gitignore"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "tddType": "testable",
       "effort": "medium",
       "model": "opus",

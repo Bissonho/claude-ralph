@@ -286,7 +286,7 @@
         "Register any new commands needed in extension.ts and package.json"
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "tddType": "frontend",
       "effort": "high",
       "model": "opus",
@@ -394,6 +394,30 @@
       "research_query": "",
       "research_model": "perplexity/sonar-pro",
       "notes": "Follow the existing dashboard/server.js patterns (inline HTML, SSE, Node.js http). The hub reads ~/.ralph/registry.json for active loops, then reads each project's .ralph/status.txt and .ralph/prd.json for detailed info. Dashboard must work standalone in browser AND be embeddable in VS Code webview. Keep HTML self-contained (no external assets).\""
+    },
+    {
+      "id": "US-018",
+      "title": "VS Code: Hub panel connecting to hub server",
+      "description": "Add a WebviewPanel to the VS Code extension that connects to the Ralph Hub server, showing the same unified dashboard inside VS Code for monitoring and controlling all active loops.",
+      "acceptanceCriteria": [
+        "Create vscode/src/views/hub-panel.ts with HubPanel class (singleton pattern like DashboardPanel)",
+        "On open: check if hub server is running (fetch http://localhost:3742/api/status), show start prompt if not",
+        "Load dashboard HTML from hub server and render in webview, or show fallback UI if hub not reachable",
+        "Forward postMessage events from webview to hub API (feedback, control actions)",
+        "Register command ralph.showHub in extension.ts and vscode/package.json",
+        "Add Hub button to Ralph activity bar or Stories view title",
+        "Auto-reconnect if hub server restarts",
+        "Show notification when a loop completes or fails (poll /api/status or listen to SSE)"
+      ],
+      "priority": 18,
+      "passes": false,
+      "tddType": "frontend",
+      "effort": "medium",
+      "model": "sonnet",
+      "research": false,
+      "research_query": "",
+      "research_model": "perplexity/sonar-pro",
+      "notes": "Follow DashboardPanel singleton pattern. The webview loads the same HTML served by the hub server. Use vscode.env.openExternal as fallback to open in browser if webview has issues. Register command in vscode/package.json contributes.commands.\""
     }
   ]
 }

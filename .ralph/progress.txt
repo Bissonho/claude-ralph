@@ -55,3 +55,9 @@ Started: 2026-03-07T15:48:58.002Z
 - Files: vscode/src/views/openrouter-panel.ts (new), vscode/src/ralph/config.ts (modified), vscode/src/ralph/types.ts (modified), vscode/src/extension.ts (modified), vscode/package.json (modified), .ralph/prd.json (modified)
 - Learnings: DashboardPanel singleton pattern: static show() checks instance, static instance field, private constructor, onDidDispose clears instance; webview communicates with extension via postMessage/onDidReceiveMessage; VS Code theme variables (--vscode-*) ensure consistent styling; panel reads/writes config.json via RalphConfig.loadGlobalConfig()/saveGlobalConfig()
 ---
+
+## 2026-03-07 - US-010
+- Implemented: WorktreesTreeProvider (TreeDataProvider) in vscode/src/views/worktrees-tree.ts showing worktrees with name, branch, status icon (idle/running/complete), progress percentage; context menus for Start/Stop/Merge/Open Folder/Remove; header Create Worktree button with multi-step input (name, branch); registered ralph.worktrees view in package.json; added loadWorktrees() and enrichWorktreeEntry() to RalphConfig; WorktreeEntry/WorktreeInfo interfaces in types.ts; worktrees.json FileSystemWatcher + poll-based auto-refresh; 6 worktree commands wired in extension.ts
+- Files: vscode/src/views/worktrees-tree.ts (new), vscode/src/ralph/types.ts (modified), vscode/src/ralph/config.ts (modified), vscode/package.json (modified), vscode/src/extension.ts (modified)
+- Learnings: WorktreesTreeProvider follows same pattern as StoriesTreeProvider (EventEmitter, refresh(), updateConfig()); enrichWorktreeEntry reads each worktree's .ralph/status.txt and .ralph/prd.json for live status and progress; worktree commands delegate to ralph CLI via terminal.sendText() matching the loop start/stop pattern; process.kill(pid, 0) throws if process doesn't exist — catch to detect not-running
+---

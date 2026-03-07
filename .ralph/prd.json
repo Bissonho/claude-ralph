@@ -209,7 +209,7 @@
         "Add worktree commands to extension.ts"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "tddType": "frontend",
       "effort": "high",
       "model": "opus",

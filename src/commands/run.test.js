@@ -9,10 +9,10 @@ import assert from 'node:assert/strict';
 // 1. dryRun mode prints stories without spawning agents
 // 2. dryRun mode does not acquire lock
 
-import { run } from './run.js';
+import { run, readAndClearFeedback } from './run.js';
 import { Config } from '../core/config.js';
 import { tmpdir } from 'os';
-import { mkdtempSync, writeFileSync, mkdirSync } from 'fs';
+import { mkdtempSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'fs';
 import { join } from 'path';
 
 function createTestPrd(dir) {
@@ -83,7 +83,32 @@ describe('--dry-run flag', () => {
 
     // Lock file should NOT exist after dry run
     const config = new Config(tmpDir);
-    const { existsSync } = await import('fs');
     assert.ok(!existsSync(config.lockFile), 'lock file should not be created in dry-run mode');
+  });
+});
+
+describe('feedback mechanism', () => {
+  it('readAndClearFeedback returns content and deletes .feedback file', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'ralph-feedback-test-'));
+    writeFileSync(join(tmpDir, '.feedback'), 'Fix the auth bug');
+    const content = readAndClearFeedback(tmpDir);
+    assert.equal(content, 'Fix the auth bug');
+    assert.ok(!existsSync(join(tmpDir, '.feedback')), '.feedback file should be deleted after reading');
+    rmSync(tmpDir, { recursive: true });
+  });
+
+  it('readAndClearFeedback returns empty string when no .feedback file', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'ralph-feedback-test-'));
+    const content = readAndClearFeedback(tmpDir);
+    assert.equal(content, '');
+    rmSync(tmpDir, { recursive: true });
+  });
+
+  it('readAndClearFeedback returns empty string for whitespace-only .feedback file', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'ralph-feedback-test-'));
+    writeFileSync(join(tmpDir, '.feedback'), '   \n  ');
+    const content = readAndClearFeedback(tmpDir);
+    assert.equal(content, '');
+    rmSync(tmpDir, { recursive: true });
   });
 });

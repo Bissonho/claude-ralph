@@ -32,7 +32,21 @@ export async function status(opts = {}) {
   console.log('');
 
   if (lastStatus) {
+    const isRunning = lastStatus.includes('running');
     console.log(`${c.dim}Last: ${lastStatus}${c.reset}`);
+    if (isRunning) {
+      // Parse elapsed and ETA from extended status format
+      const parts = lastStatus.split(' | ');
+      const elapsedPart = parts[5]?.trim();
+      const etaPart = parts[6]?.trim();
+      if (elapsedPart && etaPart) {
+        const elapsedMatch = elapsedPart.match(/^elapsed\s+(.+)$/);
+        const etaMatch = etaPart.match(/^eta\s+(.+)$/);
+        if (elapsedMatch && etaMatch) {
+          console.log(`${c.dim}Elapsed: ${elapsedMatch[1]}  ETA: ${etaMatch[1]}${c.reset}`);
+        }
+      }
+    }
   }
 
   if (pending === 0) {

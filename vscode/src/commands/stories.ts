@@ -40,10 +40,28 @@ export async function addStory(config: RalphConfig): Promise<void> {
     placeHolder: 'As a user, I want...',
   }) || '';
 
-  const model = await vscode.window.showQuickPick(
-    ['sonnet', 'opus', 'haiku'],
-    { placeHolder: 'Model' },
-  ) || 'sonnet';
+  // Build model list: built-in + enabled OpenRouter models
+  const globalConfig = config.loadGlobalConfig();
+  const enabledOpenRouterModels = (globalConfig.openrouter?.models || []).filter(m => m.enabled);
+
+  type ModelQuickPickItem = vscode.QuickPickItem & { modelValue: string };
+
+  const builtInItems: ModelQuickPickItem[] = [
+    { label: 'sonnet', description: 'Anthropic (built-in)', modelValue: 'sonnet' },
+    { label: 'opus', description: 'Anthropic (built-in)', modelValue: 'opus' },
+    { label: 'haiku', description: 'Anthropic (built-in)', modelValue: 'haiku' },
+  ];
+
+  const openRouterItems: ModelQuickPickItem[] = enabledOpenRouterModels.map(m => ({
+    label: m.id,
+    description: 'OpenRouter',
+    modelValue: `openrouter:${m.id}`,
+  }));
+
+  const allModelItems: ModelQuickPickItem[] = [...builtInItems, ...openRouterItems];
+
+  const selectedModel = await vscode.window.showQuickPick(allModelItems, { placeHolder: 'Model' });
+  const model = selectedModel ? selectedModel.modelValue : 'sonnet';
 
   const effort = await vscode.window.showQuickPick(
     ['low', 'medium', 'high'],

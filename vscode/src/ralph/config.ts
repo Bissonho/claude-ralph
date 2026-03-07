@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { PrdData, Progress, StatusInfo, UserStory } from './types';
+import { PrdData, Progress, StatusInfo, UserStory, GlobalConfig, WorktreeEntry, WorktreeInfo } from './types';
 
 export class RalphConfig {
   readonly prdDir: string;
@@ -8,6 +8,8 @@ export class RalphConfig {
   readonly statusFile: string;
   readonly progressFile: string;
   readonly lockFile: string;
+  readonly configFile: string;
+  readonly worktreesFile: string;
 
   constructor(prdDir: string) {
     this.prdDir = prdDir;
@@ -15,6 +17,8 @@ export class RalphConfig {
     this.statusFile = path.join(prdDir, 'status.txt');
     this.progressFile = path.join(prdDir, 'progress.txt');
     this.lockFile = path.join(prdDir, '.lock');
+    this.configFile = path.join(prdDir, 'config.json');
+    this.worktreesFile = path.join(prdDir, 'worktrees.json');
   }
 
   exists(): boolean {
@@ -231,11 +235,102 @@ export class RalphConfig {
     return { archivedTo: archiveFolder, project: data.project };
   }
 
+  loadGlobalConfig(): GlobalConfig {
+    try {
+      if (fs.existsSync(this.configFile)) {
+        const raw = fs.readFileSync(this.configFile, 'utf-8');
+        return JSON.parse(raw) as GlobalConfig;
+      }
+    } catch {
+      // ignore parse errors
+    }
+    return {};
+  }
+
+  saveGlobalConfig(data: GlobalConfig): void {
+    fs.writeFileSync(this.configFile, JSON.stringify(data, null, 2) + '\n');
+  }
+
+  loadWorktrees(): WorktreeInfo[] {
+    if (!fs.existsSync(this.worktreesFile)) {
+      return [];
+    }
+    try {
+      const entries: WorktreeEntry[] = JSON.parse(fs.readFileSync(this.worktreesFile, 'utf-8'));
+      return entries.map(entry => this.enrichWorktreeEntry(entry));
+    } catch {
+      return [];
+    }
+  }
+
+  private enrichWorktreeEntry(entry: WorktreeEntry): WorktreeInfo {
+    const ralphDir = path.join(entry.path, '.ralph');
+    let status: 'idle' | 'running' | 'complete' = 'idle';
+    let progress: Progress | undefined;
+
+    // Check status
+    const statusFile = path.join(ralphDir, 'status.txt');
+    if (fs.existsSync(statusFile)) {
+      const raw = fs.readFileSync(statusFile, 'utf-8').trim();
+      if (raw === 'complete') {
+        status = 'complete';
+      }
+    }
+
+    // Check lock file for running
+    if (status !== 'complete') {
+      const lockFile = path.join(ralphDir, '.lock');
+      if (fs.existsSync(lockFile)) {
+        try {
+          const pid = parseInt(fs.readFileSync(lockFile, 'utf-8').trim(), 10);
+          if (!isNaN(pid)) {
+            process.kill(pid, 0);
+            status = 'running';
+          }
+        } catch {
+          // process not running
+        }
+      }
+    }
+
+    // Read progress from worktree's prd.json
+    const prdFile = path.join(ralphDir, 'prd.json');
+    if (fs.existsSync(prdFile)) {
+      try {
+        const data: PrdData = JSON.parse(fs.readFileSync(prdFile, 'utf-8'));
+        const total = data.userStories.length;
+        const done = data.userStories.filter(s => s.passes).length;
+        progress = {
+          total,
+          done,
+          pending: total - done,
+          pct: total > 0 ? Math.round((done / total) * 100) : 0,
+        };
+      } catch {
+        // ignore
+      }
+    }
+
+    return { ...entry, status, progress };
+  }
+
   private parseStatus(raw: string): StatusInfo {
-    // Format: done/total (pct%) | story_id | status | iter x/y | time
+    // Format: done/total (pct%) | story_id | status | iter x/y | time [| elapsed Xm | eta ~Ym]
     const parts = raw.split(' | ');
     const progressMatch = parts[0]?.match(/(\d+)\/(\d+)\s*\((\d+)%\)/);
     const iterMatch = parts[3]?.match(/iter (\d+)\/(\d+)/);
+
+    // Parse optional elapsed/eta fields (parts[5] = "elapsed Xm", parts[6] = "eta ~Ym")
+    let elapsed: string | undefined;
+    let eta: string | undefined;
+    if (parts[5]) {
+      const elapsedMatch = parts[5].trim().match(/^elapsed\s+(.+)$/);
+      if (elapsedMatch) { elapsed = elapsedMatch[1]; }
+    }
+    if (parts[6]) {
+      const etaMatch = parts[6].trim().match(/^eta\s+(.+)$/);
+      if (etaMatch) { eta = etaMatch[1]; }
+    }
 
     return {
       done: progressMatch ? parseInt(progressMatch[1], 10) : 0,
@@ -246,6 +341,8 @@ export class RalphConfig {
       iteration: iterMatch ? parseInt(iterMatch[1], 10) : 0,
       maxIterations: iterMatch ? parseInt(iterMatch[2], 10) : 0,
       time: parts[4]?.trim() || '',
+      elapsed,
+      eta,
       raw,
     };
   }

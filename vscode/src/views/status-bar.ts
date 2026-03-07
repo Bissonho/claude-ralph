@@ -35,8 +35,9 @@ export class RalphStatusBar implements vscode.Disposable {
     const isRunning = status?.status.includes('running') ?? false;
 
     if (isRunning) {
-      this.statusBarItem.text = `$(sync~spin) Ralph: ${progress.done}/${progress.total} (${progress.pct}%)`;
-      this.statusBarItem.tooltip = `Running: ${status?.storyId || '...'} | iter ${status?.iteration}/${status?.maxIterations}`;
+      const etaPart = status?.eta ? ` | ETA ${status.eta}` : '';
+      this.statusBarItem.text = `$(sync~spin) Ralph: ${progress.done}/${progress.total} (${progress.pct}%)${status?.elapsed ? ` ${status.elapsed}` : ''}`;
+      this.statusBarItem.tooltip = `Running: ${status?.storyId || '...'} | iter ${status?.iteration}/${status?.maxIterations}${status?.elapsed ? ` | elapsed ${status.elapsed}` : ''}${etaPart}`;
       this.statusBarItem.backgroundColor = undefined;
     } else if (progress.pending === 0) {
       this.statusBarItem.text = `$(check) Ralph: ${progress.total}/${progress.total} (100%)`;

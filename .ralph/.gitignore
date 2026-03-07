@@ -1,0 +1,9 @@
+status.txt
+.lock
+.last-branch
+.research_context.md
+config.json
+.openrouter-models-cache.json
+activity.jsonl
+logs/
+.feedback

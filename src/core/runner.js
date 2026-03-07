@@ -1,9 +1,11 @@
 import { spawn } from 'child_process';
-import { resolveModel, isOpenRouterModel, getOpenRouterModelName, warn } from '../utils.js';
+import { resolveModel, isOpenRouterModel, getOpenRouterModelName, warn, findPrdDir } from '../utils.js';
+import { Config } from './config.js';
 
 // Spawn a Claude/Amp agent and return its output
 // Streams output to stderr so user can watch in real-time
-export function spawnAgent(prompt, story, tool = 'claude') {
+// onData: optional callback called with each stdout chunk (string)
+export function spawnAgent(prompt, story, tool = 'claude', onData) {
   const model = story.model || 'sonnet';
   const effort = story.effort || 'medium';
 
@@ -12,11 +14,11 @@ export function spawnAgent(prompt, story, tool = 'claude') {
     delete ampEnv.CLAUDECODE;
     delete ampEnv.CLAUDE_CODE_SSE_PORT;
     delete ampEnv.CLAUDE_CODE_ENTRYPOINT;
-    return spawnProcess('amp', ['--dangerously-allow-all'], prompt, ampEnv);
+    return spawnProcess('amp', ['--dangerously-allow-all'], prompt, ampEnv, onData);
   }
 
   if (isOpenRouterModel(model)) {
-    return spawnOpenRouter(prompt, model, effort);
+    return spawnOpenRouter(prompt, model, effort, onData);
   }
 
   const resolvedModel = resolveModel(model);
@@ -32,12 +34,13 @@ export function spawnAgent(prompt, story, tool = 'claude') {
   delete env.CLAUDE_CODE_SSE_PORT;
   delete env.CLAUDE_CODE_ENTRYPOINT;
 
-  return spawnProcess('claude', args, prompt, env);
+  return spawnProcess('claude', args, prompt, env, onData);
 }
 
-function spawnOpenRouter(prompt, model, effort) {
+function spawnOpenRouter(prompt, model, effort, onData) {
   const orModel = getOpenRouterModelName(model);
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const cfg = new Config(findPrdDir());
+  const apiKey = cfg.getOpenRouterKey();
 
   if (!apiKey) {
     warn('OPENROUTER_API_KEY not set. Falling back to claude-sonnet-4-6');
@@ -50,7 +53,7 @@ function spawnOpenRouter(prompt, model, effort) {
       '--effort', effort,
       '--dangerously-skip-permissions',
       '--print',
-    ], prompt, env);
+    ], prompt, env, onData);
   }
 
   const env = {
@@ -67,10 +70,10 @@ function spawnOpenRouter(prompt, model, effort) {
     '--effort', effort,
     '--dangerously-skip-permissions',
     '--print',
-  ], prompt, env);
+  ], prompt, env, onData);
 }
 
-function spawnProcess(command, args, stdin, env) {
+export function spawnProcess(command, args, stdin, env, onData) {
   return new Promise((resolve, reject) => {
     const proc = spawn(command, args, {
       env,
@@ -84,6 +87,7 @@ function spawnProcess(command, args, stdin, env) {
       const text = chunk.toString();
       output += text;
       process.stderr.write(text); // tee to terminal
+      if (onData) onData(text);
     });
 
     proc.stdin.on('error', () => {
@@ -131,7 +135,8 @@ function spawnProcess(command, args, stdin, env) {
 
 // Research via OpenRouter API (no shell deps, pure Node.js)
 export async function runResearch(query, model = 'perplexity/sonar-pro') {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const cfg = new Config(findPrdDir());
+  const apiKey = cfg.getOpenRouterKey();
   if (!apiKey) {
     warn('OPENROUTER_API_KEY not set — skipping research');
     return null;

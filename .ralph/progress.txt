@@ -97,3 +97,9 @@ Started: 2026-03-07T15:48:58.002Z
 - Files: src/commands/status.js, vscode/src/ralph/types.ts, vscode/src/ralph/config.ts, vscode/src/views/status-bar.ts, vscode/src/views/progress-panel.ts
 - Learnings: parseStatus() split-by-pipe pattern extends cleanly — parts[5]/parts[6] handle optional fields without breaking existing callers; TypeScript optional fields (elapsed?: string) avoid null checks in display code; VS Code webview conditional rendering with template literals keeps timing section hidden when no data
 ---
+
+## 2026-03-07 - US-017
+- Implemented: src/hub/server.js with startHub(opts) — HTTP server on port 3742 serving unified dashboard for all active Ralph loops; GET / serves self-contained dark-themed HTML with per-project cards (progress bar, current story, elapsed/eta, stories list, control buttons, feedback input); GET /events SSE stream polling registry every 2s; GET /api/status JSON array of all loops; GET /api/logs/:project/:storyId returns log file content; POST /api/feedback writes to target project .ralph/.feedback; POST /api/control sends SIGINT/SIGTSTP/SIGCONT/SIGUSR1 signals to loop PID; optional auth via RALPH_HUB_TOKEN env var with Bearer token; added 'hub' command to src/cli.js with --port and --token options
+- Files: src/hub/server.js (new), src/cli.js (modified)
+- Learnings: GlobalRegistry.list() returns live entries with PID filtering — ideal for hub polling; dashboard pattern from dashboard/server.js (inline HTML template, SSE, createServer) scales well to multi-project; escapeHtml in client-side JS prevents XSS from project names; CORS headers needed for cross-origin webview access; readBody helper with Promise wraps req.on('data'/'end') for async POST handling
+---

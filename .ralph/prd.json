@@ -386,7 +386,7 @@
         "Zero npm dependencies — use Node.js built-in http module"
       ],
       "priority": 17,
-      "passes": false,
+      "passes": true,
       "tddType": "frontend",
       "effort": "high",
       "model": "opus",

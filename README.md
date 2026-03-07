@@ -15,12 +15,17 @@ Install Ralph globally: npm install -g github:Bissonho/claude-ralph
 
 Then run these commands:
 1. ralph init
-2. Create .mcp.json with: {"mcpServers":{"ralph":{"command":"ralph","args":["mcp"]}}}
+2. Find where ralph is installed by running: which ralph
+3. Create .mcp.json using the FULL PATH from step 2, like:
+   {"mcpServers":{"ralph":{"command":"/opt/homebrew/bin/ralph","args":["mcp"]}}}
+   (the path may differ on your machine — use the output from `which ralph`)
 
 Once done, ask me: "What do you want to build?" — then create a PRD with user stories using the ralph_create_prd MCP tool, and start the loop with ralph_start.
 ```
 
 That's it. Claude will install Ralph, configure MCP, ask what you want to build, generate the PRD, and start coding autonomously.
+
+> **Why the full path?** MCP servers are spawned with a minimal PATH. Using the absolute path to `ralph` ensures Claude Code can always find it.
 
 ---
 
@@ -58,8 +63,8 @@ cd your-project
 # 1. Initialize Ralph
 ralph init
 
-# 2. Add MCP integration (so Claude Code can manage Ralph)
-echo '{"mcpServers":{"ralph":{"command":"ralph","args":["mcp"]}}}' > .mcp.json
+# 2. Add MCP integration (use full path from `which ralph`)
+echo '{"mcpServers":{"ralph":{"command":"'$(which ralph)'","args":["mcp"]}}}' > .mcp.json
 
 # 3. Edit .ralph/prd.json with your stories (or let Claude do it via MCP)
 
@@ -114,12 +119,17 @@ When Claude Code has Ralph as an MCP server, it can manage everything:
 {
   "mcpServers": {
     "ralph": {
-      "command": "ralph",
+      "command": "/opt/homebrew/bin/ralph",
       "args": ["mcp"]
     }
   }
 }
 ```
+
+> Use `which ralph` to find the correct path on your machine. Common locations:
+> - macOS (Homebrew): `/opt/homebrew/bin/ralph`
+> - macOS (nvm): `~/.nvm/versions/node/v22.x.x/bin/ralph`
+> - Linux: `/usr/local/bin/ralph`
 
 ### MCP Tools
 

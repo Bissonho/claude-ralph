@@ -11,6 +11,30 @@ export class Config {
     this.lastBranchFile = join(prdDir, '.last-branch');
     this.archiveDir = join(prdDir, 'archive');
     this.researchContextFile = join(prdDir, '.research_context.md');
+    this.configFile = join(prdDir, 'config.json');
+  }
+
+  loadGlobalConfig() {
+    if (!existsSync(this.configFile)) return {};
+    try {
+      return JSON.parse(readFileSync(this.configFile, 'utf-8'));
+    } catch {
+      return {};
+    }
+  }
+
+  saveGlobalConfig(data) {
+    writeFileSync(this.configFile, JSON.stringify(data, null, 2));
+  }
+
+  getOpenRouterKey() {
+    const cfg = this.loadGlobalConfig();
+    return cfg.openrouter?.apiKey || process.env.OPENROUTER_API_KEY;
+  }
+
+  getEnabledModels() {
+    const cfg = this.loadGlobalConfig();
+    return (cfg.openrouter?.models || []).filter((m) => m.enabled);
   }
 
   load() {

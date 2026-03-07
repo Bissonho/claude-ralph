@@ -1,0 +1,17 @@
+# Ralph Progress Log
+Started: 2026-03-07T15:48:58.002Z
+---
+
+## Codebase Patterns
+
+## 2026-03-07 - US-001
+- Implemented: configFile property, loadGlobalConfig(), saveGlobalConfig(), getOpenRouterKey(), getEnabledModels() in Config class; .ralph/.gitignore with config.json and .openrouter-models-cache.json
+- Files: src/core/config.js, src/core/config.test.js, .ralph/.gitignore
+- Learnings: Config class uses existsSync + readFileSync pattern consistently; optional chaining (?.) works well for nested config access with fallbacks; TDD with node:test requires no async in before() for sync setup
+---
+
+## 2026-03-07 - US-002
+- Implemented: validateApiKey(), fetchAvailableModels(), fetchModelsWithCache() in src/core/openrouter.js using Node.js built-in fetch; cache TTL 1h with JSON cache file
+- Files: src/core/openrouter.js (new), src/core/openrouter.test.js (new)
+- Learnings: mock.fn() + mock.mockImplementationOnce() works well for mocking globalThis.fetch in node:test; set globalThis.fetch BEFORE dynamic import of module under test; cache pattern: existsSync + readFileSync + JSON.parse with fallthrough on error
+---

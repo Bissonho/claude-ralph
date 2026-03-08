@@ -191,8 +191,6 @@ export async function run(opts = {}) {
     const loopStartedAt = Date.now();
     logger.emit({ type: 'loop_start', maxIterations, tool });
 
-    // Track consecutive story failures for auto-pause logic (reset on any success)
-    const consecutiveFailures = [];
 
     for (let i = 1; i <= maxIterations; i++) {
       if (stopped) break;
@@ -282,45 +280,30 @@ export async function run(opts = {}) {
       console.log('');
       info(`Iteration ${i} done in ${formatDuration(elapsed)} (exit code: ${result.code})`);
 
-      // Handle exhausted retries — mark failed and move to next story
+      // Handle exhausted retries — stop the loop (stories must complete in order)
       if (retryResult.exhausted) {
-        warn(`Story ${story.id}: all ${retryResult.retries} retries exhausted. Marking as failed and moving to next story.`);
-        config.updateStory(story.id, { failed: true });
         const classification = classifyError(result.code, result.stderr, result.killed);
-        consecutiveFailures.push({ storyId: story.id, errorType: classification.type, retryable: classification.retryable });
-        const pauseCheck = checkAutoPause(consecutiveFailures);
-        if (pauseCheck) {
-          error(`Loop paused: ${pauseCheck.message}`);
-          config.setPauseState(pauseCheck.reason, story.id, consecutiveFailures.length);
-          config.updateStatus(`paused: ${pauseCheck.reason}`);
-          config.releaseLock();
-          registry.deregister(process.pid);
-          exitFn(2);
-          return;
-        }
-        continue;
+        error(`Story ${story.id}: all ${retryResult.retries} retries exhausted (${classification.type}). Stopping loop — stories must complete in order.`);
+        config.updateStory(story.id, { failed: true });
+        config.setPauseState(`Story ${story.id} failed after ${retryResult.retries} retries (${classification.type})`, story.id, 1);
+        config.updateStatus(`paused: ${story.id} failed`);
+        config.releaseLock();
+        registry.deregister(process.pid);
+        exitFn(2);
+        return;
       }
 
-      // Handle non-retryable errors — move to next story immediately
+      // Handle non-retryable errors — stop the loop (stories must complete in order)
       if (retryResult.skipped) {
         const classification = classifyError(result.code, result.stderr, result.killed);
-        warn(`Story ${story.id}: non-retryable error (${classification.type}). Moving to next story.`);
-        consecutiveFailures.push({ storyId: story.id, errorType: classification.type, retryable: classification.retryable });
-        const pauseCheck = checkAutoPause(consecutiveFailures);
-        if (pauseCheck) {
-          error(`Loop paused: ${pauseCheck.message}`);
-          config.setPauseState(pauseCheck.reason, story.id, consecutiveFailures.length);
-          config.updateStatus(`paused: ${pauseCheck.reason}`);
-          config.releaseLock();
-          registry.deregister(process.pid);
-          exitFn(2);
-          return;
-        }
-        continue;
+        error(`Story ${story.id}: non-retryable error (${classification.type}). Stopping loop — stories must complete in order.`);
+        config.setPauseState(`Story ${story.id} failed: non-retryable ${classification.type} error`, story.id, 1);
+        config.updateStatus(`paused: ${story.id} failed`);
+        config.releaseLock();
+        registry.deregister(process.pid);
+        exitFn(2);
+        return;
       }
-
-      // Story succeeded — reset consecutive failure streak
-      consecutiveFailures.length = 0;
 
       // Check if story is now marked as passed
       const refreshedData = config.load();

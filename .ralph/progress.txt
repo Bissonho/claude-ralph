@@ -44,4 +44,10 @@ Started: 2026-03-07T16:49:21.580Z
 - Learnings: TDD with 9 failing tests first; injectable sleepFn/logFn/classifyFn enables deterministic unit tests without real waits; sleep chunking in 5s intervals produces countdown messages naturally; getNextStory must filter failed stories to prevent re-picking exhausted ones; 117 tests all pass
 ---
 
+## 2026-03-08 - RES-004
+- Implemented: checkAutoPause(failures) exported from run.js — tracks consecutive story failures; pauses after 3 consecutive same non-retryable type OR 5 consecutive any type; setPauseState/getPauseState in config.js write/read .ralph/pause.json with {reason, pausedAt, lastStoryId, consecutiveFailures}; exitFn option added to run() for testability; consecutiveFailures array resets on story success; status.txt set to 'paused: <reason>' before exit code 2
+- Files: src/commands/run.js, src/commands/run.test.js, src/core/config.js, src/core/config.test.js
+- Learnings: checkAutoPause as pure exported function enables easy unit testing without process.exit mocking; injectable exitFn pattern (like sleepFn) allows integration-level testing; consecutiveFailures.length = 0 (vs reassign) mutates in place; non-retryable check should only apply to rule #1 (3 consecutive same type), rule #2 (5 any type) includes retryable failures too; call releaseLock() explicitly before exitFn(2) since finally block doesn't run after process.exit
+---
+
 ## Codebase Patterns

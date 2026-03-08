@@ -70,7 +70,9 @@
       "tddType": "testable",
       "effort": "high",
       "model": "sonnet",
-      "startedAt": "2026-03-08T07:33:43.445Z"
+      "startedAt": "2026-03-08T07:33:43.445Z",
+      "completedAt": "2026-03-08T07:38:31.693Z",
+      "durationMs": 288247
     },
     {
       "id": "RES-004",
@@ -86,10 +88,11 @@
         "Clear user-facing message logged explaining pause reason and recovery steps"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "tddType": "testable",
       "effort": "high",
-      "model": "sonnet"
+      "model": "sonnet",
+      "startedAt": "2026-03-08T07:38:33.729Z"
     },
     {
       "id": "RES-005",

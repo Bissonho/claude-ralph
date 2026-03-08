@@ -49,7 +49,9 @@
       "tddType": "testable",
       "effort": "medium",
       "model": "sonnet",
-      "startedAt": "2026-03-08T07:32:04.319Z"
+      "startedAt": "2026-03-08T07:32:04.319Z",
+      "completedAt": "2026-03-08T07:33:41.402Z",
+      "durationMs": 97083
     },
     {
       "id": "RES-003",
@@ -64,10 +66,11 @@
         "Countdown messages logged every 5s during backoff wait"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "tddType": "testable",
       "effort": "high",
-      "model": "sonnet"
+      "model": "sonnet",
+      "startedAt": "2026-03-08T07:33:43.445Z"
     },
     {
       "id": "RES-004",

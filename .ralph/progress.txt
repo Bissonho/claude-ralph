@@ -38,4 +38,10 @@ Started: 2026-03-07T16:49:21.580Z
 - Learnings: TDD with 17 failing tests first; auth check before rate_limit to avoid 401/403 false positives; case-insensitive stderr matching; exit code 124 for timeout; all 26 tests pass
 ---
 
+## 2026-03-08 - RES-003
+- Implemented: retryWithBackoff() exported from run.js — wraps spawnFn with up to 3 retries using BACKOFF_DELAYS [5000,15000,45000]ms; classifyError() drives retry/skip decision; countdown logs every 5s chunk; main loop uses retryWithBackoff() instead of direct spawnAgent(); exhausted retries mark story failed=true; getNextStory() in config.js updated to also filter !s.failed
+- Files: src/commands/run.js, src/commands/run.test.js, src/core/config.js
+- Learnings: TDD with 9 failing tests first; injectable sleepFn/logFn/classifyFn enables deterministic unit tests without real waits; sleep chunking in 5s intervals produces countdown messages naturally; getNextStory must filter failed stories to prevent re-picking exhausted ones; 117 tests all pass
+---
+
 ## Codebase Patterns

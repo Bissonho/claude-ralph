@@ -214,3 +214,101 @@ describe('retryWithBackoff', () => {
     assert.deepEqual(BACKOFF_DELAYS, [5000, 15000, 45000]);
   });
 });
+
+describe('checkAutoPause', () => {
+  let checkAutoPause;
+
+  before(async () => {
+    ({ checkAutoPause } = await import('./run.js'));
+  });
+
+  it('returns null for empty failures array', () => {
+    assert.equal(checkAutoPause([]), null);
+  });
+
+  it('returns null for 2 consecutive same-type non-retryable failures', () => {
+    const failures = [
+      { storyId: 'US-001', errorType: 'auth', retryable: false },
+      { storyId: 'US-002', errorType: 'auth', retryable: false },
+    ];
+    assert.equal(checkAutoPause(failures), null);
+  });
+
+  it('pauses after 3 consecutive same non-retryable error type (auth)', () => {
+    const failures = [
+      { storyId: 'US-001', errorType: 'auth', retryable: false },
+      { storyId: 'US-002', errorType: 'auth', retryable: false },
+      { storyId: 'US-003', errorType: 'auth', retryable: false },
+    ];
+    const result = checkAutoPause(failures);
+    assert.ok(result, 'should return a pause object');
+    assert.ok(result.reason, 'should have reason field');
+    assert.ok(result.reason.includes('auth'), 'reason should mention error type');
+    assert.ok(result.reason.includes('3'), 'reason should mention count');
+  });
+
+  it('does not pause after 3 consecutive same RETRYABLE error type', () => {
+    const failures = [
+      { storyId: 'US-001', errorType: 'network', retryable: true },
+      { storyId: 'US-002', errorType: 'network', retryable: true },
+      { storyId: 'US-003', errorType: 'network', retryable: true },
+    ];
+    assert.equal(checkAutoPause(failures), null);
+  });
+
+  it('pauses after 5 consecutive failures of any type', () => {
+    const failures = [
+      { storyId: 'US-001', errorType: 'network', retryable: true },
+      { storyId: 'US-002', errorType: 'auth', retryable: false },
+      { storyId: 'US-003', errorType: 'timeout', retryable: true },
+      { storyId: 'US-004', errorType: 'network', retryable: true },
+      { storyId: 'US-005', errorType: 'unknown', retryable: true },
+    ];
+    const result = checkAutoPause(failures);
+    assert.ok(result, 'should return a pause object');
+    assert.ok(result.reason.includes('5'), 'reason should mention count');
+  });
+
+  it('does not pause for 4 consecutive mixed-type failures', () => {
+    const failures = [
+      { storyId: 'US-001', errorType: 'network', retryable: true },
+      { storyId: 'US-002', errorType: 'auth', retryable: false },
+      { storyId: 'US-003', errorType: 'timeout', retryable: true },
+      { storyId: 'US-004', errorType: 'network', retryable: true },
+    ];
+    assert.equal(checkAutoPause(failures), null);
+  });
+
+  it('includes a user-facing message with recovery instructions', () => {
+    const failures = [
+      { storyId: 'US-001', errorType: 'auth', retryable: false },
+      { storyId: 'US-002', errorType: 'auth', retryable: false },
+      { storyId: 'US-003', errorType: 'auth', retryable: false },
+    ];
+    const result = checkAutoPause(failures);
+    assert.ok(result.message, 'should include user-facing message');
+    assert.ok(result.message.includes('ralph run') || result.message.toLowerCase().includes('resume'), 'message should include recovery instructions');
+  });
+
+  it('pauses after exactly 5 failures when all are same retryable type', () => {
+    const failures = [
+      { storyId: 'US-001', errorType: 'network', retryable: true },
+      { storyId: 'US-002', errorType: 'network', retryable: true },
+      { storyId: 'US-003', errorType: 'network', retryable: true },
+      { storyId: 'US-004', errorType: 'network', retryable: true },
+      { storyId: 'US-005', errorType: 'network', retryable: true },
+    ];
+    const result = checkAutoPause(failures);
+    assert.ok(result, 'should pause after 5 failures even if all same retryable type');
+  });
+
+  it('pauses after more than 5 failures', () => {
+    const failures = Array.from({ length: 6 }, (_, i) => ({
+      storyId: `US-00${i + 1}`,
+      errorType: 'unknown',
+      retryable: true,
+    }));
+    const result = checkAutoPause(failures);
+    assert.ok(result, 'should pause for 6 failures');
+  });
+});

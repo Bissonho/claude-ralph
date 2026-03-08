@@ -8,6 +8,7 @@ export class Config {
     this.progressFile = join(prdDir, 'progress.txt');
     this.statusFile = join(prdDir, 'status.txt');
     this.lockFile = join(prdDir, '.lock');
+    this.pauseFile = join(prdDir, 'pause.json');
     this.lastBranchFile = join(prdDir, '.last-branch');
     this.archiveDir = join(prdDir, 'archive');
     this.researchContextFile = join(prdDir, '.research_context.md');
@@ -245,6 +246,24 @@ export class Config {
 
   releaseLock() {
     try { unlinkSync(this.lockFile); } catch { /* ignore */ }
+  }
+
+  setPauseState(reason, lastStoryId, consecutiveFailures) {
+    writeFileSync(this.pauseFile, JSON.stringify({
+      reason,
+      pausedAt: new Date().toISOString(),
+      lastStoryId,
+      consecutiveFailures,
+    }, null, 2));
+  }
+
+  getPauseState() {
+    if (!existsSync(this.pauseFile)) return null;
+    try {
+      return JSON.parse(readFileSync(this.pauseFile, 'utf-8'));
+    } catch {
+      return null;
+    }
   }
 
   _validate(data) {

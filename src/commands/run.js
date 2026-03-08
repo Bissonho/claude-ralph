@@ -57,6 +57,36 @@ export async function retryWithBackoff(spawnFn, classifyFn, logFn, sleepFn, maxR
   return { result: lastResult, retries: maxRetries, exhausted: true };
 }
 
+// Check if the loop should auto-pause based on consecutive failure history.
+// failures: array of {storyId, errorType, retryable} — current consecutive streak (reset on success)
+// Returns null if no pause needed, or {reason, message} if loop should pause.
+export function checkAutoPause(failures) {
+  if (failures.length === 0) return null;
+
+  // Rule 1: 3 consecutive same non-retryable error type
+  if (failures.length >= 3) {
+    const last3 = failures.slice(-3);
+    const lastType = last3[last3.length - 1].errorType;
+    if (last3.every((f) => f.errorType === lastType && !f.retryable)) {
+      const reason = `3 consecutive ${lastType} failures`;
+      const hint = lastType === 'auth'
+        ? 'Check your API key and credentials.'
+        : `Check your ${lastType} configuration.`;
+      const message = `Loop paused: ${lastType} error failed 3 times consecutively. ${hint} Run 'ralph run' to resume.`;
+      return { reason, message };
+    }
+  }
+
+  // Rule 2: 5 consecutive failures of any type
+  if (failures.length >= 5) {
+    const reason = `5 consecutive story failures`;
+    const message = `Loop paused: 5 consecutive story failures across different error types. Review recent errors and run 'ralph run' to resume.`;
+    return { reason, message };
+  }
+
+  return null;
+}
+
 // Read .ralph/.feedback content and delete the file. Returns trimmed content or ''.
 export function readAndClearFeedback(prdDir) {
   const feedbackPath = join(prdDir, '.feedback');
@@ -71,6 +101,7 @@ export async function run(opts = {}) {
   const tool = opts.tool || 'claude';
   const researchModel = opts.researchModel || 'perplexity/sonar-pro';
   const dryRun = opts.dryRun || false;
+  const exitFn = opts.exitFn || ((code) => process.exit(code));
 
   const prdDir = findPrdDir(opts.prdDir);
   const config = new Config(prdDir);
@@ -152,6 +183,9 @@ export async function run(opts = {}) {
 
     const loopStartedAt = Date.now();
     logger.emit({ type: 'loop_start', maxIterations, tool });
+
+    // Track consecutive story failures for auto-pause logic (reset on any success)
+    const consecutiveFailures = [];
 
     for (let i = 1; i <= maxIterations; i++) {
       if (stopped) break;
@@ -245,14 +279,41 @@ export async function run(opts = {}) {
       if (retryResult.exhausted) {
         warn(`Story ${story.id}: all ${retryResult.retries} retries exhausted. Marking as failed and moving to next story.`);
         config.updateStory(story.id, { failed: true });
+        const classification = classifyError(result.code, result.stderr, result.killed);
+        consecutiveFailures.push({ storyId: story.id, errorType: classification.type, retryable: classification.retryable });
+        const pauseCheck = checkAutoPause(consecutiveFailures);
+        if (pauseCheck) {
+          error(`Loop paused: ${pauseCheck.message}`);
+          config.setPauseState(pauseCheck.reason, story.id, consecutiveFailures.length);
+          config.updateStatus(`paused: ${pauseCheck.reason}`);
+          config.releaseLock();
+          registry.deregister(process.pid);
+          exitFn(2);
+          return;
+        }
         continue;
       }
 
       // Handle non-retryable errors — move to next story immediately
       if (retryResult.skipped) {
-        warn(`Story ${story.id}: non-retryable error (${classifyError(result.code, result.stderr, result.killed).type}). Moving to next story.`);
+        const classification = classifyError(result.code, result.stderr, result.killed);
+        warn(`Story ${story.id}: non-retryable error (${classification.type}). Moving to next story.`);
+        consecutiveFailures.push({ storyId: story.id, errorType: classification.type, retryable: classification.retryable });
+        const pauseCheck = checkAutoPause(consecutiveFailures);
+        if (pauseCheck) {
+          error(`Loop paused: ${pauseCheck.message}`);
+          config.setPauseState(pauseCheck.reason, story.id, consecutiveFailures.length);
+          config.updateStatus(`paused: ${pauseCheck.reason}`);
+          config.releaseLock();
+          registry.deregister(process.pid);
+          exitFn(2);
+          return;
+        }
         continue;
       }
+
+      // Story succeeded — reset consecutive failure streak
+      consecutiveFailures.length = 0;
 
       // Check if story is now marked as passed
       const refreshedData = config.load();

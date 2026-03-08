@@ -26,4 +26,16 @@ Started: 2026-03-07T16:49:21.580Z
 - Learnings: Odd number check with num % 2 !== 0, all 3 acceptance criteria pass via TDD
 ---
 
+## 2026-03-08 - RES-001
+- Implemented: stderr capture in spawnProcess() — stdio changed from ['pipe','pipe','inherit'] to ['pipe','pipe','pipe'], stderr chunks accumulated into result.stderr string, printed to process.stderr in real-time
+- Files: src/core/runner.js, src/core/runner.test.js
+- Learnings: Real-time stderr visibility preserved via process.stderr.write(); result shape is {output, stderr, code, killed}; all 91 tests pass with TDD approach
+---
+
+## 2026-03-08 - RES-002
+- Implemented: classifyError(exitCode, stderr, killed=false) in src/core/runner.js — returns {type, retryable, message}; types: auth (non-retryable), network, rate_limit, timeout, killed (non-retryable), unknown (retryable)
+- Files: src/core/runner.js, src/core/runner.test.js
+- Learnings: TDD with 17 failing tests first; auth check before rate_limit to avoid 401/403 false positives; case-insensitive stderr matching; exit code 124 for timeout; all 26 tests pass
+---
+
 ## Codebase Patterns

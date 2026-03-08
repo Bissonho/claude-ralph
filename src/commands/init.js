@@ -67,24 +67,34 @@ export async function init() {
     `status.txt\n.lock\n.last-branch\n.research_context.md\n`
   );
 
-  // Create .mcp.json suggestion
-  const mcpConfig = {
-    mcpServers: {
-      ralph: {
-        command: 'npx',
-        args: ['ralph-cli', 'mcp'],
-      },
-    },
-  };
+  // Auto-configure .mcp.json
+  const mcpJsonPath = join(cwd, '.mcp.json');
+  const ralphMcpEntry = { command: 'ralph', args: ['mcp'] };
+
+  try {
+    if (existsSync(mcpJsonPath)) {
+      const existing = JSON.parse(readFileSync(mcpJsonPath, 'utf-8'));
+      if (!existing.mcpServers) existing.mcpServers = {};
+      if (!existing.mcpServers.ralph) {
+        existing.mcpServers.ralph = ralphMcpEntry;
+        writeFileSync(mcpJsonPath, JSON.stringify(existing, null, 2) + '\n');
+        info('Added ralph to existing .mcp.json');
+      } else {
+        info('ralph already configured in .mcp.json');
+      }
+    } else {
+      writeFileSync(mcpJsonPath, JSON.stringify({ mcpServers: { ralph: ralphMcpEntry } }, null, 2) + '\n');
+      info('Created .mcp.json with ralph MCP server');
+    }
+  } catch (e) {
+    warn(`Could not update .mcp.json: ${e.message}`);
+  }
 
   success('Initialized .ralph/');
   console.log('');
   console.log(`${c.bold}Next steps:${c.reset}`);
   console.log(`  1. Edit ${c.cyan}.ralph/prd.json${c.reset} — add your user stories`);
   console.log(`  2. Run ${c.cyan}ralph run${c.reset} to start the loop`);
-  console.log('');
-  console.log(`${c.dim}Optional: Add Ralph as MCP server for Claude Code:${c.reset}`);
-  console.log(`  Add to .mcp.json: ${JSON.stringify(mcpConfig.mcpServers.ralph)}`);
 }
 
 function detectProjectName(cwd) {

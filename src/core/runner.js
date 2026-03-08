@@ -2,12 +2,29 @@ import { spawn } from 'child_process';
 import { resolveModel, isOpenRouterModel, getOpenRouterModelName, warn, findPrdDir } from '../utils.js';
 import { Config } from './config.js';
 
+// Map PRD effort values to valid Claude Code --effort levels (low, medium, high, max)
+const EFFORT_MAP = {
+  low: 'low', small: 'low', easy: 'low', trivial: 'low', xs: 'low',
+  medium: 'medium', moderate: 'medium', normal: 'medium', md: 'medium', m: 'medium',
+  high: 'high', large: 'high', hard: 'high', complex: 'high', lg: 'high', l: 'high',
+  max: 'max', xl: 'max', huge: 'max', critical: 'max',
+};
+
+export function normalizeEffort(effort) {
+  const normalized = EFFORT_MAP[(effort || 'medium').toLowerCase()];
+  if (!normalized) {
+    warn(`Unknown effort "${effort}", defaulting to "medium". Valid: low, medium, high, max`);
+    return 'medium';
+  }
+  return normalized;
+}
+
 // Spawn a Claude/Amp agent and return its output
 // Streams output to stderr so user can watch in real-time
 // onData: optional callback called with each stdout chunk (string)
 export function spawnAgent(prompt, story, tool = 'claude', onData) {
   const model = story.model || 'sonnet';
-  const effort = story.effort || 'medium';
+  const effort = normalizeEffort(story.effort);
 
   if (tool === 'amp') {
     const ampEnv = { ...process.env };

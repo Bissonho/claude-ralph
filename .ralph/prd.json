@@ -92,7 +92,9 @@
       "tddType": "testable",
       "effort": "high",
       "model": "sonnet",
-      "startedAt": "2026-03-08T07:38:33.729Z"
+      "startedAt": "2026-03-08T07:38:33.729Z",
+      "completedAt": "2026-03-08T07:42:56.291Z",
+      "durationMs": 262562
     },
     {
       "id": "RES-005",
@@ -106,10 +108,11 @@
         "If no pause.json exists, ralph run starts normally (no behavior change)"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "tddType": "testable",
       "effort": "medium",
-      "model": "sonnet"
+      "model": "sonnet",
+      "startedAt": "2026-03-08T07:42:58.334Z"
     }
   ]
 }

@@ -50,4 +50,10 @@ Started: 2026-03-07T16:49:21.580Z
 - Learnings: checkAutoPause as pure exported function enables easy unit testing without process.exit mocking; injectable exitFn pattern (like sleepFn) allows integration-level testing; consecutiveFailures.length = 0 (vs reassign) mutates in place; non-retryable check should only apply to rule #1 (3 consecutive same type), rule #2 (5 any type) includes retryable failures too; call releaseLock() explicitly before exitFn(2) since finally block doesn't run after process.exit
 ---
 
+## 2026-03-08 - RES-005
+- Implemented: Resume-from-pause in run() — reads pause.json on startup, logs resume message with reason and last story id, clears pause.json; status() shows pause reason, timestamp, and last story id when paused; clearPauseState() added to Config class
+- Files: src/commands/run.js, src/commands/status.js, src/core/config.js, src/commands/run.test.js, src/commands/status.test.js (new)
+- Learnings: Pause state naturally handled by existing getNextStory() (failed stories skipped), so resume just needs to clear the file and log; status.test.js created as new file since no prior status tests existed; all 139 tests pass
+---
+
 ## Codebase Patterns

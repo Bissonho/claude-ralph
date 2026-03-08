@@ -266,6 +266,10 @@ export class Config {
     }
   }
 
+  clearPauseState() {
+    try { unlinkSync(this.pauseFile); } catch { /* ignore */ }
+  }
+
   _validate(data) {
     if (!data.project) throw new Error('prd.json: missing "project"');
     if (!data.branchName) throw new Error('prd.json: missing "branchName"');

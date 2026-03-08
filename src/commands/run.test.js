@@ -312,3 +312,89 @@ describe('checkAutoPause', () => {
     assert.ok(result, 'should pause for 6 failures');
   });
 });
+
+describe('resume from pause state', () => {
+  it('run() logs resume message when pause.json exists', async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'ralph-resume-test-'));
+    writeFileSync(join(tmpDir, 'prd.json'), JSON.stringify({
+      project: 'resume-test',
+      branchName: 'test-branch',
+      userStories: [
+        { id: 'RES-001', title: 'Story One', passes: true, priority: 1, effort: 'low', model: 'sonnet', research: false },
+        { id: 'RES-002', title: 'Story Two', passes: false, priority: 2, effort: 'low', model: 'sonnet', research: false },
+      ]
+    }));
+
+    const config = new Config(tmpDir);
+    config.setPauseState('3 consecutive auth failures', 'RES-001', 3);
+
+    const logged = [];
+    const origInfo = process.stderr.write.bind(process.stderr);
+    const origLog = console.log;
+    console.log = (...args) => logged.push(args.join(' '));
+
+    try {
+      await run({ prdDir: tmpDir, dryRun: true });
+    } finally {
+      console.log = origLog;
+    }
+
+    const allOutput = logged.join('\n');
+    assert.ok(allOutput.includes('Resuming') || allOutput.includes('resume'), 'should log resume message');
+    assert.ok(allOutput.includes('auth') || allOutput.includes('RES-001'), 'should include pause reason or last story');
+
+    rmSync(tmpDir, { recursive: true });
+  });
+
+  it('run() deletes pause.json after detecting it', async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'ralph-resume-test-'));
+    writeFileSync(join(tmpDir, 'prd.json'), JSON.stringify({
+      project: 'resume-test',
+      branchName: 'test-branch',
+      userStories: [
+        { id: 'RES-001', title: 'Done Story', passes: true, priority: 1, effort: 'low', model: 'sonnet', research: false },
+      ]
+    }));
+
+    const config = new Config(tmpDir);
+    config.setPauseState('auth failure', 'RES-001', 1);
+    assert.ok(existsSync(config.pauseFile), 'pause.json should exist before run');
+
+    const origLog = console.log;
+    console.log = () => {};
+    try {
+      await run({ prdDir: tmpDir, dryRun: true });
+    } finally {
+      console.log = origLog;
+    }
+
+    assert.ok(!existsSync(config.pauseFile), 'pause.json should be deleted after run detects it');
+
+    rmSync(tmpDir, { recursive: true });
+  });
+
+  it('run() starts normally when no pause.json exists', async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'ralph-no-pause-test-'));
+    writeFileSync(join(tmpDir, 'prd.json'), JSON.stringify({
+      project: 'no-pause-test',
+      branchName: 'test-branch',
+      userStories: [
+        { id: 'US-001', title: 'Test Story', passes: false, priority: 1, effort: 'low', model: 'sonnet', research: false },
+      ]
+    }));
+
+    const logged = [];
+    const origLog = console.log;
+    console.log = (...args) => logged.push(args.join(' '));
+    try {
+      await run({ prdDir: tmpDir, dryRun: true });
+    } finally {
+      console.log = origLog;
+    }
+
+    const allOutput = logged.join('\n');
+    assert.ok(!allOutput.toLowerCase().includes('resuming'), 'should not show resume message when no pause state');
+
+    rmSync(tmpDir, { recursive: true });
+  });
+});

@@ -49,6 +49,16 @@ export async function status(opts = {}) {
     }
   }
 
+  // Pause state
+  const pauseState = config.getPauseState();
+  if (pauseState) {
+    const pausedAt = new Date(pauseState.pausedAt).toLocaleString();
+    console.log(`${c.yellow}${c.bold}Paused:${c.reset} ${pauseState.reason}`);
+    console.log(`${c.dim}Paused at: ${pausedAt} | Last story: ${pauseState.lastStoryId}${c.reset}`);
+    console.log(`${c.dim}Run 'ralph run' to resume.${c.reset}`);
+    console.log('');
+  }
+
   if (pending === 0) {
     console.log(`${c.green}${c.bold}All stories complete!${c.reset}`);
   }

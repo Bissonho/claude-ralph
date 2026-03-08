@@ -111,6 +111,13 @@ export async function run(opts = {}) {
   info(`Project: ${c.bold}${data.project}${c.reset}`);
   info(`Branch: ${c.cyan}${data.branchName}${c.reset}`);
 
+  // Check for pause state and log resume message
+  const pauseState = config.getPauseState();
+  if (pauseState) {
+    info(`Resuming from pause (reason: ${pauseState.reason}). Last story: ${pauseState.lastStoryId}.`);
+    config.clearPauseState();
+  }
+
   const { total, done, pending } = config.getProgress(data);
   info(`Progress: ${progressBar(done, total)}`);
 

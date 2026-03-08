@@ -58,7 +58,7 @@ export class Config {
 
   getNextStory(data) {
     return data.userStories
-      .filter((s) => !s.passes)
+      .filter((s) => !s.passes && !s.failed)
       .sort((a, b) => (a.priority || 999) - (b.priority || 999))[0] || null;
   }
 

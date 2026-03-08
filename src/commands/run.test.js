@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it, before } from 'node:test';
 import assert from 'node:assert/strict';
 
 // Test parseRunArgs via cli.js by importing the module's internals
@@ -110,5 +110,107 @@ describe('feedback mechanism', () => {
     const content = readAndClearFeedback(tmpDir);
     assert.equal(content, '');
     rmSync(tmpDir, { recursive: true });
+  });
+});
+
+describe('retryWithBackoff', () => {
+  let retryWithBackoff;
+  let classifyError;
+
+  before(async () => {
+    ({ retryWithBackoff } = await import('./run.js'));
+    ({ classifyError } = await import('../core/runner.js'));
+  });
+
+  const noopLog = () => {};
+  const instantSleep = async () => {};
+
+  it('returns result immediately on success without retrying', async () => {
+    let callCount = 0;
+    const spawnFn = async () => { callCount++; return { code: 0, stderr: '', killed: false }; };
+    const { result, retries } = await retryWithBackoff(spawnFn, classifyError, noopLog, instantSleep);
+    assert.equal(callCount, 1);
+    assert.equal(retries, 0);
+    assert.equal(result.code, 0);
+  });
+
+  it('retries on retryable error and succeeds on second attempt', async () => {
+    let callCount = 0;
+    const spawnFn = async () => {
+      callCount++;
+      if (callCount === 1) return { code: 1, stderr: 'rate limit 429', killed: false };
+      return { code: 0, stderr: '', killed: false };
+    };
+    const { result, retries } = await retryWithBackoff(spawnFn, classifyError, noopLog, instantSleep);
+    assert.equal(callCount, 2);
+    assert.equal(retries, 1);
+    assert.equal(result.code, 0);
+  });
+
+  it('does not retry non-retryable errors (auth)', async () => {
+    let callCount = 0;
+    const spawnFn = async () => { callCount++; return { code: 1, stderr: '401 unauthorized', killed: false }; };
+    const { result, skipped } = await retryWithBackoff(spawnFn, classifyError, noopLog, instantSleep);
+    assert.equal(callCount, 1, 'should only call spawnFn once for non-retryable errors');
+    assert.equal(skipped, true);
+  });
+
+  it('does not retry killed processes', async () => {
+    let callCount = 0;
+    const spawnFn = async () => { callCount++; return { code: -1, stderr: '', killed: true }; };
+    const { skipped } = await retryWithBackoff(spawnFn, classifyError, noopLog, instantSleep);
+    assert.equal(callCount, 1);
+    assert.equal(skipped, true);
+  });
+
+  it('exhausts all 3 retries and returns exhausted=true', async () => {
+    let callCount = 0;
+    const spawnFn = async () => { callCount++; return { code: 1, stderr: 'ECONNREFUSED network error', killed: false }; };
+    const { result, retries, exhausted } = await retryWithBackoff(spawnFn, classifyError, noopLog, instantSleep);
+    assert.equal(callCount, 4, 'should call spawnFn 4 times: 1 initial + 3 retries');
+    assert.equal(retries, 3);
+    assert.equal(exhausted, true);
+  });
+
+  it('uses exponential backoff delays totaling 5s + 15s + 45s = 65s', async () => {
+    const delays = [];
+    const sleepFn = async (ms) => { delays.push(ms); };
+    const spawnFn = async () => ({ code: 1, stderr: 'ECONNREFUSED', killed: false });
+    await retryWithBackoff(spawnFn, classifyError, noopLog, sleepFn);
+    const total = delays.reduce((a, b) => a + b, 0);
+    assert.equal(total, 5000 + 15000 + 45000);
+  });
+
+  it('logs each retry with error type, attempt number, and wait duration', async () => {
+    const logs = [];
+    const logFn = (msg) => logs.push(msg);
+    const sleepFn = async () => {};
+    const spawnFn = async () => ({ code: 1, stderr: 'rate limit 429', killed: false });
+    await retryWithBackoff(spawnFn, classifyError, logFn, sleepFn);
+    const retryLogs = logs.filter(l => l.includes('Retry attempt'));
+    assert.equal(retryLogs.length, 3, 'should log one message per retry attempt');
+    assert.ok(retryLogs[0].includes('rate_limit'), 'should include error type');
+    assert.ok(retryLogs[0].includes('1/3'), 'should include attempt 1 of 3');
+    assert.ok(retryLogs[0].includes('5s'), 'should include 5s wait for first retry');
+    assert.ok(retryLogs[1].includes('2/3'), 'should include attempt 2 of 3');
+    assert.ok(retryLogs[1].includes('15s'), 'should include 15s wait for second retry');
+    assert.ok(retryLogs[2].includes('3/3'), 'should include attempt 3 of 3');
+    assert.ok(retryLogs[2].includes('45s'), 'should include 45s wait for third retry');
+  });
+
+  it('logs countdown messages during backoff wait (every 5s chunk)', async () => {
+    const logs = [];
+    const logFn = (msg) => logs.push(msg);
+    const sleepFn = async () => {};
+    const spawnFn = async () => ({ code: 1, stderr: 'ECONNREFUSED', killed: false });
+    await retryWithBackoff(spawnFn, classifyError, logFn, sleepFn);
+    // 15s wait (retry 2) → 2 countdown messages; 45s wait (retry 3) → 8 countdown messages
+    const countdownLogs = logs.filter(l => l.includes('remaining'));
+    assert.ok(countdownLogs.length > 0, 'should have countdown messages during long backoff waits');
+  });
+
+  it('BACKOFF_DELAYS export is [5000, 15000, 45000]', async () => {
+    const { BACKOFF_DELAYS } = await import('./run.js');
+    assert.deepEqual(BACKOFF_DELAYS, [5000, 15000, 45000]);
   });
 });

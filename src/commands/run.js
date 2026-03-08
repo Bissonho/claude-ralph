@@ -2,10 +2,60 @@ import { existsSync, mkdirSync, copyFileSync, writeFileSync, readFileSync, unlin
 import { join } from 'path';
 import { Config } from '../core/config.js';
 import { generatePrompt } from '../core/prompt.js';
-import { spawnAgent } from '../core/runner.js';
+import { spawnAgent, classifyError } from '../core/runner.js';
 import { ActivityLogger } from '../core/activity.js';
 import { GlobalRegistry } from '../core/registry.js';
 import { info, warn, error, success, c, progressBar, formatDuration, findPrdDir, calculateEta } from '../utils.js';
+
+export const BACKOFF_DELAYS = [5000, 15000, 45000];
+
+// Retry a spawn function with exponential backoff for transient errors.
+// spawnFn: async () => {code, stderr, killed} — called on each attempt
+// classifyFn: (code, stderr, killed) => {type, retryable, message}
+// logFn: (msg) => void — for retry/countdown logging
+// sleepFn: (ms) => Promise — injectable for testing
+// maxRetries: max number of retries (default 3)
+// Returns: {result, retries, exhausted?, skipped?}
+export async function retryWithBackoff(spawnFn, classifyFn, logFn, sleepFn, maxRetries = 3) {
+  let lastResult;
+  let lastClassification;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (attempt > 0) {
+      const delay = BACKOFF_DELAYS[attempt - 1];
+      logFn(`Retry attempt ${attempt}/${maxRetries}: error type=${lastClassification.type}, waiting ${delay / 1000}s`);
+
+      // Sleep in 5s chunks with countdown messages
+      let remaining = delay;
+      while (remaining > 0) {
+        const chunk = Math.min(5000, remaining);
+        await sleepFn(chunk);
+        remaining -= chunk;
+        if (remaining > 0) {
+          logFn(`  Waiting... ${remaining / 1000}s remaining`);
+        }
+      }
+    }
+
+    lastResult = await spawnFn();
+
+    if (lastResult.code === 0) {
+      return { result: lastResult, retries: attempt };
+    }
+
+    lastClassification = classifyFn(lastResult.code, lastResult.stderr, lastResult.killed);
+
+    if (!lastClassification.retryable) {
+      return { result: lastResult, retries: attempt, skipped: true };
+    }
+
+    if (attempt >= maxRetries) {
+      return { result: lastResult, retries: attempt, exhausted: true };
+    }
+  }
+
+  return { result: lastResult, retries: maxRetries, exhausted: true };
+}
 
 // Read .ralph/.feedback content and delete the file. Returns trimmed content or ''.
 export function readAndClearFeedback(prdDir) {
@@ -168,10 +218,16 @@ export async function run(opts = {}) {
       const logStream = logger.startStoryLog(story.id);
       const onData = (chunk) => logStream.write(chunk);
 
-      // Spawn agent
+      // Spawn agent with retry logic for transient errors
       logger.emit({ type: 'agent_spawn', storyId: story.id, tool });
       const startTime = Date.now();
-      const result = await spawnAgent(prompt, story, tool, onData);
+      const retryResult = await retryWithBackoff(
+        () => spawnAgent(prompt, story, tool, onData),
+        classifyError,
+        (msg) => warn(msg),
+        sleep,
+      );
+      const result = retryResult.result;
       const elapsed = Date.now() - startTime;
 
       // Record completedAt and durationMs on the story
@@ -184,6 +240,19 @@ export async function run(opts = {}) {
 
       console.log('');
       info(`Iteration ${i} done in ${formatDuration(elapsed)} (exit code: ${result.code})`);
+
+      // Handle exhausted retries — mark failed and move to next story
+      if (retryResult.exhausted) {
+        warn(`Story ${story.id}: all ${retryResult.retries} retries exhausted. Marking as failed and moving to next story.`);
+        config.updateStory(story.id, { failed: true });
+        continue;
+      }
+
+      // Handle non-retryable errors — move to next story immediately
+      if (retryResult.skipped) {
+        warn(`Story ${story.id}: non-retryable error (${classifyError(result.code, result.stderr, result.killed).type}). Moving to next story.`);
+        continue;
+      }
 
       // Check if story is now marked as passed
       const refreshedData = config.load();

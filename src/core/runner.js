@@ -140,6 +140,38 @@ export function spawnProcess(command, args, stdin, env, onData) {
   });
 }
 
+// Classify an error from a spawned process result into a structured error type.
+// Parameters: exitCode (number), stderr (string), killed (boolean, optional)
+// Returns: {type, retryable, message}
+export function classifyError(exitCode, stderr, killed = false) {
+  const s = (stderr || '').toLowerCase();
+
+  if (killed) {
+    return { type: 'killed', retryable: false, message: 'Process was killed' };
+  }
+
+  if (exitCode === 124 || s.includes('timeout')) {
+    return { type: 'timeout', retryable: true, message: 'Operation timed out' };
+  }
+
+  if (s.includes('401') || s.includes('403') || s.includes('unauthorized') ||
+      s.includes('forbidden') || s.includes('authentication')) {
+    return { type: 'auth', retryable: false, message: 'Authentication or authorization error' };
+  }
+
+  if (s.includes('429') || s.includes('rate limit') || s.includes('rate.limit') ||
+      s.includes('too many requests') || s.includes('throttl')) {
+    return { type: 'rate_limit', retryable: true, message: 'Rate limit exceeded' };
+  }
+
+  if (s.includes('econnrefused') || s.includes('etimedout') || s.includes('enotfound') ||
+      s.includes('network') || s.includes('socket') || s.includes('dns')) {
+    return { type: 'network', retryable: true, message: 'Network error' };
+  }
+
+  return { type: 'unknown', retryable: true, message: 'Unknown error' };
+}
+
 // Research via OpenRouter API (no shell deps, pure Node.js)
 export async function runResearch(query, model = 'perplexity/sonar-pro') {
   const cfg = new Config(findPrdDir());

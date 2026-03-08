@@ -154,6 +154,118 @@ describe('runner - stderr capture', () => {
   });
 });
 
+describe('classifyError', () => {
+  let classifyError;
+
+  before(async () => {
+    ({ classifyError } = await import('./runner.js'));
+  });
+
+  it('classifies 401 in stderr as auth (non-retryable)', () => {
+    const result = classifyError(1, 'Error: 401 Unauthorized');
+    assert.equal(result.type, 'auth');
+    assert.equal(result.retryable, false);
+    assert.ok(typeof result.message === 'string');
+  });
+
+  it('classifies 403 in stderr as auth (non-retryable)', () => {
+    const result = classifyError(1, 'Error: 403 Forbidden');
+    assert.equal(result.type, 'auth');
+    assert.equal(result.retryable, false);
+  });
+
+  it('classifies "unauthorized" in stderr as auth (non-retryable)', () => {
+    const result = classifyError(1, 'Request unauthorized');
+    assert.equal(result.type, 'auth');
+    assert.equal(result.retryable, false);
+  });
+
+  it('classifies "forbidden" in stderr as auth (non-retryable)', () => {
+    const result = classifyError(1, 'Access forbidden');
+    assert.equal(result.type, 'auth');
+    assert.equal(result.retryable, false);
+  });
+
+  it('classifies "authentication" in stderr as auth (non-retryable)', () => {
+    const result = classifyError(1, 'authentication failed');
+    assert.equal(result.type, 'auth');
+    assert.equal(result.retryable, false);
+  });
+
+  it('classifies ECONNREFUSED as network (retryable)', () => {
+    const result = classifyError(1, 'connect ECONNREFUSED 127.0.0.1:443');
+    assert.equal(result.type, 'network');
+    assert.equal(result.retryable, true);
+  });
+
+  it('classifies ETIMEDOUT as network (retryable)', () => {
+    const result = classifyError(1, 'connect ETIMEDOUT');
+    assert.equal(result.type, 'network');
+    assert.equal(result.retryable, true);
+  });
+
+  it('classifies ENOTFOUND as network (retryable)', () => {
+    const result = classifyError(1, 'getaddrinfo ENOTFOUND api.anthropic.com');
+    assert.equal(result.type, 'network');
+    assert.equal(result.retryable, true);
+  });
+
+  it('classifies 429 in stderr as rate_limit (retryable)', () => {
+    const result = classifyError(1, 'Error: 429 Too Many Requests');
+    assert.equal(result.type, 'rate_limit');
+    assert.equal(result.retryable, true);
+  });
+
+  it('classifies "rate limit" in stderr as rate_limit (retryable)', () => {
+    const result = classifyError(1, 'You have exceeded the rate limit');
+    assert.equal(result.type, 'rate_limit');
+    assert.equal(result.retryable, true);
+  });
+
+  it('classifies "too many requests" in stderr as rate_limit (retryable)', () => {
+    const result = classifyError(1, 'too many requests from this IP');
+    assert.equal(result.type, 'rate_limit');
+    assert.equal(result.retryable, true);
+  });
+
+  it('classifies "throttl" in stderr as rate_limit (retryable)', () => {
+    const result = classifyError(1, 'Request throttled, please wait');
+    assert.equal(result.type, 'rate_limit');
+    assert.equal(result.retryable, true);
+  });
+
+  it('classifies exit code 124 as timeout (retryable)', () => {
+    const result = classifyError(124, '');
+    assert.equal(result.type, 'timeout');
+    assert.equal(result.retryable, true);
+  });
+
+  it('classifies "timeout" in stderr as timeout (retryable)', () => {
+    const result = classifyError(1, 'operation timeout after 30s');
+    assert.equal(result.type, 'timeout');
+    assert.equal(result.retryable, true);
+  });
+
+  it('classifies killed=true as killed (non-retryable)', () => {
+    const result = classifyError(-1, '', true);
+    assert.equal(result.type, 'killed');
+    assert.equal(result.retryable, false);
+  });
+
+  it('classifies unknown errors as unknown (retryable)', () => {
+    const result = classifyError(1, 'Some unexpected error occurred');
+    assert.equal(result.type, 'unknown');
+    assert.equal(result.retryable, true);
+  });
+
+  it('returns {type, retryable, message} shape', () => {
+    const result = classifyError(0, '');
+    assert.ok('type' in result);
+    assert.ok('retryable' in result);
+    assert.ok('message' in result);
+  });
+});
+
 describe('runner - onData callback', () => {
   it('spawnProcess calls onData callback with stdout chunks', async () => {
     const { spawnProcess } = await import('./runner.js');

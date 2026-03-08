@@ -1,349 +1,120 @@
 {
-  "project": "ralph-sum-tests",
-  "branchName": "ralph/sum-tests",
-  "description": "Stress test: 20 small tasks creating sum utility functions to validate the Ralph loop speed and reliability",
+  "project": "ralph-loop-resilience",
+  "branchName": "ralph/loop-resilience",
+  "description": "Add connection resilience to the Ralph loop: capture stderr, classify errors (auth/network/rate-limit), retry with exponential backoff for transient errors, auto-pause on persistent failures, and resume from where it stopped.",
   "qualityChecks": [
     {
       "name": "syntax",
-      "command": "node --check src/test-sums/*.js 2>&1 || true"
+      "command": "node --check src/core/runner.js src/core/config.js src/commands/run.js 2>&1"
     },
     {
       "name": "test",
-      "command": "node --test src/test-sums/*.test.js 2>&1 || true"
+      "command": "node --test src/**/*.test.js 2>&1 || true"
     }
   ],
   "userStories": [
     {
-      "id": "SUM-001",
-      "title": "Sum of two integers",
-      "description": "Create src/test-sums/sum01.js exporting sum(a,b) that returns a+b. Create src/test-sums/sum01.test.js with 3 test cases.",
+      "id": "RES-001",
+      "title": "Capture stderr from spawned Claude Code processes",
+      "description": "Modify spawnProcess() in src/core/runner.js to capture stderr output from spawned Claude Code processes instead of inheriting it. Store stderr in the result object alongside stdout, exit code, and killed status. This is essential for error classification. Change stdio from ['pipe', 'pipe', 'inherit'] to ['pipe', 'pipe', 'pipe'] and collect stderr chunks. The result object should have a new 'stderr' field with the full stderr output as a string. Also update spawnAgent() to pass stderr through to the caller. Make sure normal stderr output is still logged to console.error in real-time so the user can see progress, but also accumulated for later analysis.",
       "acceptanceCriteria": [
-        "sum(2,3) returns 5",
-        "sum(-1,1) returns 0",
-        "sum(0,0) returns 0"
+        "spawnProcess() captures stderr into result.stderr string",
+        "stderr is still printed to console.error in real-time",
+        "result object has {output, stderr, code, killed} shape",
+        "Existing tests still pass"
       ],
       "priority": 1,
       "passes": true,
       "tddType": "testable",
-      "effort": "low",
-      "model": "haiku",
-      "notes": "",
-      "startedAt": "2026-03-07T16:49:21.581Z",
-      "completedAt": "2026-03-07T16:50:09.569Z",
-      "durationMs": 47988
+      "effort": "medium",
+      "model": "sonnet",
+      "startedAt": "2026-03-08T07:30:52.308Z",
+      "completedAt": "2026-03-08T07:32:02.269Z",
+      "durationMs": 69941
     },
     {
-      "id": "SUM-002",
-      "title": "Sum of array elements",
-      "description": "Create src/test-sums/sum02.js exporting sumArray(arr) that returns sum of all elements. Create test file with 3 cases.",
+      "id": "RES-002",
+      "title": "Error classification module",
+      "description": "Create a new function classifyError(exitCode, stderr) in src/core/runner.js that analyzes the exit code and stderr output to classify the error type. Return an object with {type, retryable, message}. Error types: 'auth' (401/403/unauthorized/forbidden/authentication in stderr — NOT retryable), 'network' (ECONNREFUSED/ETIMEDOUT/ENOTFOUND/network/socket/DNS in stderr — retryable), 'rate_limit' (429/rate.limit/too.many.requests/throttl in stderr — retryable), 'timeout' (exit code 124 or timeout in stderr — retryable), 'killed' (killed flag true — NOT retryable), 'unknown' (anything else — retryable for first 2 attempts then not). Export the function so it can be used by the run command. Add unit tests in src/core/runner.test.js.",
       "acceptanceCriteria": [
-        "sumArray([1,2,3]) returns 6",
-        "sumArray([]) returns 0",
-        "sumArray([-1,5,3]) returns 7"
+        "classifyError() returns {type, retryable, message} object",
+        "Correctly classifies auth errors (401, 403, unauthorized) as non-retryable",
+        "Correctly classifies network errors (ECONNREFUSED, ETIMEDOUT) as retryable",
+        "Correctly classifies rate limit errors (429, too many requests) as retryable",
+        "Correctly classifies timeout (exit code 124) as retryable",
+        "Unit tests cover all error types in src/core/runner.test.js"
       ],
       "priority": 2,
       "passes": true,
       "tddType": "testable",
-      "effort": "low",
-      "model": "haiku",
-      "notes": "",
-      "startedAt": "2026-03-07T16:50:11.574Z",
-      "completedAt": "2026-03-07T16:51:12.530Z",
-      "durationMs": 60954
+      "effort": "medium",
+      "model": "sonnet",
+      "startedAt": "2026-03-08T07:32:04.319Z",
+      "completedAt": "2026-03-08T07:33:41.402Z",
+      "durationMs": 97083
     },
     {
-      "id": "SUM-003",
-      "title": "Sum of even numbers in array",
-      "description": "Create src/test-sums/sum03.js exporting sumEvens(arr). Create test file.",
+      "id": "RES-003",
+      "title": "Retry with exponential backoff for transient errors",
+      "description": "Modify the main loop in src/commands/run.js to retry failed stories when classifyError() returns retryable=true. Implement exponential backoff: wait 5s, 15s, 45s between retries (base 5s, multiplier 3x). Maximum 3 retry attempts per story. Track retry count per story. Log each retry attempt with the error type, attempt number, and wait time. If all retries exhausted for a story, mark it as failed and move to next story. Import classifyError from runner.js. The retry logic should be in the main iteration loop after checking the result code. Between retries, log a countdown message every 5 seconds so the user knows the loop is waiting, not frozen.",
       "acceptanceCriteria": [
-        "sumEvens([1,2,3,4]) returns 6",
-        "sumEvens([1,3,5]) returns 0",
-        "sumEvens([2,4,6]) returns 12"
+        "Failed stories with retryable errors are retried up to 3 times",
+        "Backoff follows exponential pattern: 5s, 15s, 45s",
+        "Each retry logs: error type, attempt number, wait duration",
+        "After 3 failed retries, story is skipped and loop continues to next",
+        "Non-retryable errors skip retry and move to next story immediately",
+        "Countdown messages logged every 5s during backoff wait"
       ],
       "priority": 3,
       "passes": true,
       "tddType": "testable",
-      "effort": "low",
-      "model": "haiku",
-      "notes": "",
-      "startedAt": "2026-03-07T16:51:14.533Z",
-      "completedAt": "2026-03-07T16:52:21.128Z",
-      "durationMs": 66594
+      "effort": "high",
+      "model": "sonnet",
+      "startedAt": "2026-03-08T07:33:43.445Z",
+      "completedAt": "2026-03-08T07:38:31.693Z",
+      "durationMs": 288247
     },
     {
-      "id": "SUM-004",
-      "title": "Sum of odd numbers in array",
-      "description": "Create src/test-sums/sum04.js exporting sumOdds(arr). Create test file.",
+      "id": "RES-004",
+      "title": "Auto-pause loop on persistent auth or network failures",
+      "description": "Add logic to src/commands/run.js that detects persistent failures and auto-pauses the loop instead of burning through all remaining stories. Track consecutive failures across stories (not just retries within one story). If 3 consecutive stories fail with the same non-retryable error type (like 'auth'), OR if 5 consecutive stories fail with any error type, pause the loop. When pausing: write 'paused' to .ralph/status.txt with the reason, log a clear message explaining why the loop paused and what the user should do (e.g., 'Loop paused: authentication failed 3 times consecutively. Check your API key and run ralph run to resume.'), release the lock file, and exit with code 2 (distinct from 0=success, 1=error). Also add a new function setPauseState(reason) and getPauseState() in src/core/config.js that writes/reads a .ralph/pause.json file with {reason, pausedAt, lastStoryId, consecutiveFailures}.",
       "acceptanceCriteria": [
-        "sumOdds([1,2,3,4]) returns 4",
-        "sumOdds([2,4,6]) returns 0",
-        "sumOdds([1,3,5]) returns 9"
+        "Loop pauses after 3 consecutive same-type non-retryable failures",
+        "Loop pauses after 5 consecutive failures of any type",
+        "Pause state written to .ralph/pause.json with reason and context",
+        "Status file updated to 'paused: <reason>'",
+        "Lock file released on pause",
+        "Exit code 2 on pause (distinct from 0 and 1)",
+        "Clear user-facing message logged explaining pause reason and recovery steps"
       ],
       "priority": 4,
       "passes": true,
       "tddType": "testable",
-      "effort": "low",
-      "model": "haiku",
-      "notes": "",
-      "startedAt": "2026-03-07T17:00:55.759Z",
-      "completedAt": "2026-03-07T16:52:24.540Z",
-      "durationMs": 1409
+      "effort": "high",
+      "model": "sonnet",
+      "startedAt": "2026-03-08T07:38:33.729Z",
+      "completedAt": "2026-03-08T07:42:56.291Z",
+      "durationMs": 262562
     },
     {
-      "id": "SUM-005",
-      "title": "Running sum of array",
-      "description": "Create src/test-sums/sum05.js exporting runningSum(arr) returning cumulative sum array. Create test file.",
+      "id": "RES-005",
+      "title": "Resume from pause state on ralph run",
+      "description": "Modify src/commands/run.js so that when ralph run starts, it checks for .ralph/pause.json via getPauseState(). If a pause state exists, log a message like 'Resuming from pause (reason: auth failure). Last story: RES-003.' and clear the pause state file before starting the loop. The loop should start from the story that was running when it paused (using lastStoryId from pause.json to find the right story in prd.json). Also add a ralph status enhancement: when there is a pause.json, ralph status should show the pause reason and when it was paused. Update src/commands/status.js to read and display pause state. Delete the pause.json file after successfully resuming.",
       "acceptanceCriteria": [
-        "runningSum([1,2,3]) returns [1,3,6]",
-        "runningSum([5]) returns [5]",
-        "runningSum([]) returns []"
+        "ralph run detects existing pause.json and logs resume message",
+        "Loop resumes from the story that was active when paused",
+        "pause.json is deleted after successful resume",
+        "ralph status shows pause state when paused (reason, time, last story)",
+        "If no pause.json exists, ralph run starts normally (no behavior change)"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "tddType": "testable",
-      "effort": "low",
-      "model": "haiku",
-      "notes": ""
-    },
-    {
-      "id": "SUM-006",
-      "title": "Sum of digits of a number",
-      "description": "Create src/test-sums/sum06.js exporting sumDigits(n). Create test file.",
-      "acceptanceCriteria": [
-        "sumDigits(123) returns 6",
-        "sumDigits(0) returns 0",
-        "sumDigits(9999) returns 36"
-      ],
-      "priority": 6,
-      "passes": false,
-      "tddType": "testable",
-      "effort": "low",
-      "model": "haiku",
-      "notes": ""
-    },
-    {
-      "id": "SUM-007",
-      "title": "Sum of matrix (2D array)",
-      "description": "Create src/test-sums/sum07.js exporting sumMatrix(matrix). Create test file.",
-      "acceptanceCriteria": [
-        "sumMatrix([[1,2],[3,4]]) returns 10",
-        "sumMatrix([[0]]) returns 0",
-        "sumMatrix([]) returns 0"
-      ],
-      "priority": 7,
-      "passes": false,
-      "tddType": "testable",
-      "effort": "low",
-      "model": "haiku",
-      "notes": ""
-    },
-    {
-      "id": "SUM-008",
-      "title": "Sum of first N natural numbers",
-      "description": "Create src/test-sums/sum08.js exporting sumNatural(n) using formula n*(n+1)/2. Create test file.",
-      "acceptanceCriteria": [
-        "sumNatural(10) returns 55",
-        "sumNatural(1) returns 1",
-        "sumNatural(0) returns 0"
-      ],
-      "priority": 8,
-      "passes": false,
-      "tddType": "testable",
-      "effort": "low",
-      "model": "haiku",
-      "notes": ""
-    },
-    {
-      "id": "SUM-009",
-      "title": "Sum of squares",
-      "description": "Create src/test-sums/sum09.js exporting sumSquares(arr). Create test file.",
-      "acceptanceCriteria": [
-        "sumSquares([1,2,3]) returns 14",
-        "sumSquares([0]) returns 0",
-        "sumSquares([-2,3]) returns 13"
-      ],
-      "priority": 9,
-      "passes": false,
-      "tddType": "testable",
-      "effort": "low",
-      "model": "haiku",
-      "notes": ""
-    },
-    {
-      "id": "SUM-010",
-      "title": "Sum of cubes",
-      "description": "Create src/test-sums/sum10.js exporting sumCubes(arr). Create test file.",
-      "acceptanceCriteria": [
-        "sumCubes([1,2,3]) returns 36",
-        "sumCubes([0]) returns 0",
-        "sumCubes([-1,2]) returns 7"
-      ],
-      "priority": 10,
-      "passes": false,
-      "tddType": "testable",
-      "effort": "low",
-      "model": "haiku",
-      "notes": ""
-    },
-    {
-      "id": "SUM-011",
-      "title": "Sum with initial value (reduce)",
-      "description": "Create src/test-sums/sum11.js exporting sumWithInit(arr, init). Create test file.",
-      "acceptanceCriteria": [
-        "sumWithInit([1,2,3], 10) returns 16",
-        "sumWithInit([], 5) returns 5",
-        "sumWithInit([1], 0) returns 1"
-      ],
-      "priority": 11,
-      "passes": false,
-      "tddType": "testable",
-      "effort": "low",
-      "model": "haiku",
-      "notes": ""
-    },
-    {
-      "id": "SUM-012",
-      "title": "Sum of absolute values",
-      "description": "Create src/test-sums/sum12.js exporting sumAbs(arr). Create test file.",
-      "acceptanceCriteria": [
-        "sumAbs([-1,2,-3]) returns 6",
-        "sumAbs([0,0]) returns 0",
-        "sumAbs([5]) returns 5"
-      ],
-      "priority": 12,
-      "passes": false,
-      "tddType": "testable",
-      "effort": "low",
-      "model": "haiku",
-      "notes": ""
-    },
-    {
-      "id": "SUM-013",
-      "title": "Sum of unique elements",
-      "description": "Create src/test-sums/sum13.js exporting sumUnique(arr). Create test file.",
-      "acceptanceCriteria": [
-        "sumUnique([1,2,2,3]) returns 6",
-        "sumUnique([1,1,1]) returns 1",
-        "sumUnique([]) returns 0"
-      ],
-      "priority": 13,
-      "passes": false,
-      "tddType": "testable",
-      "effort": "low",
-      "model": "haiku",
-      "notes": ""
-    },
-    {
-      "id": "SUM-014",
-      "title": "Sum of fibonacci up to N",
-      "description": "Create src/test-sums/sum14.js exporting sumFib(n) — sum of fib numbers <= n. Create test file.",
-      "acceptanceCriteria": [
-        "sumFib(10) returns 20 (1+1+2+3+5+8)",
-        "sumFib(1) returns 2 (1+1)",
-        "sumFib(0) returns 0"
-      ],
-      "priority": 14,
-      "passes": false,
-      "tddType": "testable",
-      "effort": "low",
-      "model": "haiku",
-      "notes": ""
-    },
-    {
-      "id": "SUM-015",
-      "title": "Pair sum — find pairs that sum to target",
-      "description": "Create src/test-sums/sum15.js exporting pairSum(arr, target) returning count of pairs. Create test file.",
-      "acceptanceCriteria": [
-        "pairSum([1,2,3,4], 5) returns 2",
-        "pairSum([1,1,1], 2) returns 3",
-        "pairSum([], 0) returns 0"
-      ],
-      "priority": 15,
-      "passes": false,
-      "tddType": "testable",
-      "effort": "low",
-      "model": "haiku",
-      "notes": ""
-    },
-    {
-      "id": "SUM-016",
-      "title": "Sum of string digit characters",
-      "description": "Create src/test-sums/sum16.js exporting sumStringDigits(str). Create test file.",
-      "acceptanceCriteria": [
-        "sumStringDigits('a1b2c3') returns 6",
-        "sumStringDigits('hello') returns 0",
-        "sumStringDigits('99') returns 18"
-      ],
-      "priority": 16,
-      "passes": false,
-      "tddType": "testable",
-      "effort": "low",
-      "model": "haiku",
-      "notes": ""
-    },
-    {
-      "id": "SUM-017",
-      "title": "Nested array deep sum",
-      "description": "Create src/test-sums/sum17.js exporting deepSum(arr) that handles nested arrays. Create test file.",
-      "acceptanceCriteria": [
-        "deepSum([1,[2,[3]]]) returns 6",
-        "deepSum([]) returns 0",
-        "deepSum([[1,2],[3,[4,5]]]) returns 15"
-      ],
-      "priority": 17,
-      "passes": false,
-      "tddType": "testable",
-      "effort": "low",
-      "model": "haiku",
-      "notes": ""
-    },
-    {
-      "id": "SUM-018",
-      "title": "Sum of object values",
-      "description": "Create src/test-sums/sum18.js exporting sumValues(obj). Create test file.",
-      "acceptanceCriteria": [
-        "sumValues({a:1,b:2,c:3}) returns 6",
-        "sumValues({}) returns 0",
-        "sumValues({x:10}) returns 10"
-      ],
-      "priority": 18,
-      "passes": false,
-      "tddType": "testable",
-      "effort": "low",
-      "model": "haiku",
-      "notes": ""
-    },
-    {
-      "id": "SUM-019",
-      "title": "Weighted sum",
-      "description": "Create src/test-sums/sum19.js exporting weightedSum(values, weights). Create test file.",
-      "acceptanceCriteria": [
-        "weightedSum([1,2,3],[1,2,3]) returns 14",
-        "weightedSum([5],[2]) returns 10",
-        "weightedSum([],[]) returns 0"
-      ],
-      "priority": 19,
-      "passes": false,
-      "tddType": "testable",
-      "effort": "low",
-      "model": "haiku",
-      "notes": ""
-    },
-    {
-      "id": "SUM-020",
-      "title": "Sum index file",
-      "description": "Create src/test-sums/index.js that re-exports all 19 sum functions. Create src/test-sums/index.test.js that imports from index and verifies all exist.",
-      "acceptanceCriteria": [
-        "index.js exports all 19 functions",
-        "index.test.js verifies each export is a function",
-        "All 19 functions are accessible via import from index"
-      ],
-      "priority": 20,
-      "passes": false,
-      "tddType": "testable",
-      "effort": "low",
-      "model": "haiku",
-      "notes": ""
+      "effort": "medium",
+      "model": "sonnet",
+      "startedAt": "2026-03-08T07:42:58.334Z",
+      "completedAt": "2026-03-08T07:45:19.360Z",
+      "durationMs": 141026
     }
   ]
 }

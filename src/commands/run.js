@@ -2,10 +2,90 @@ import { existsSync, mkdirSync, copyFileSync, writeFileSync, readFileSync, unlin
 import { join } from 'path';
 import { Config } from '../core/config.js';
 import { generatePrompt } from '../core/prompt.js';
-import { spawnAgent } from '../core/runner.js';
+import { spawnAgent, classifyError } from '../core/runner.js';
 import { ActivityLogger } from '../core/activity.js';
 import { GlobalRegistry } from '../core/registry.js';
 import { info, warn, error, success, c, progressBar, formatDuration, findPrdDir, calculateEta } from '../utils.js';
+
+export const BACKOFF_DELAYS = [5000, 15000, 45000];
+
+// Retry a spawn function with exponential backoff for transient errors.
+// spawnFn: async () => {code, stderr, killed} — called on each attempt
+// classifyFn: (code, stderr, killed) => {type, retryable, message}
+// logFn: (msg) => void — for retry/countdown logging
+// sleepFn: (ms) => Promise — injectable for testing
+// maxRetries: max number of retries (default 3)
+// Returns: {result, retries, exhausted?, skipped?}
+export async function retryWithBackoff(spawnFn, classifyFn, logFn, sleepFn, maxRetries = 3) {
+  let lastResult;
+  let lastClassification;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (attempt > 0) {
+      const delay = BACKOFF_DELAYS[attempt - 1];
+      logFn(`Retry attempt ${attempt}/${maxRetries}: error type=${lastClassification.type}, waiting ${delay / 1000}s`);
+
+      // Sleep in 5s chunks with countdown messages
+      let remaining = delay;
+      while (remaining > 0) {
+        const chunk = Math.min(5000, remaining);
+        await sleepFn(chunk);
+        remaining -= chunk;
+        if (remaining > 0) {
+          logFn(`  Waiting... ${remaining / 1000}s remaining`);
+        }
+      }
+    }
+
+    lastResult = await spawnFn();
+
+    if (lastResult.code === 0) {
+      return { result: lastResult, retries: attempt };
+    }
+
+    lastClassification = classifyFn(lastResult.code, lastResult.stderr, lastResult.killed);
+
+    if (!lastClassification.retryable) {
+      return { result: lastResult, retries: attempt, skipped: true };
+    }
+
+    if (attempt >= maxRetries) {
+      return { result: lastResult, retries: attempt, exhausted: true };
+    }
+  }
+
+  return { result: lastResult, retries: maxRetries, exhausted: true };
+}
+
+// Check if the loop should auto-pause based on consecutive failure history.
+// failures: array of {storyId, errorType, retryable} — current consecutive streak (reset on success)
+// Returns null if no pause needed, or {reason, message} if loop should pause.
+export function checkAutoPause(failures) {
+  if (failures.length === 0) return null;
+
+  // Rule 1: 3 consecutive same non-retryable error type
+  if (failures.length >= 3) {
+    const last3 = failures.slice(-3);
+    const lastType = last3[last3.length - 1].errorType;
+    if (last3.every((f) => f.errorType === lastType && !f.retryable)) {
+      const reason = `3 consecutive ${lastType} failures`;
+      const hint = lastType === 'auth'
+        ? 'Check your API key and credentials.'
+        : `Check your ${lastType} configuration.`;
+      const message = `Loop paused: ${lastType} error failed 3 times consecutively. ${hint} Run 'ralph run' to resume.`;
+      return { reason, message };
+    }
+  }
+
+  // Rule 2: 5 consecutive failures of any type
+  if (failures.length >= 5) {
+    const reason = `5 consecutive story failures`;
+    const message = `Loop paused: 5 consecutive story failures across different error types. Review recent errors and run 'ralph run' to resume.`;
+    return { reason, message };
+  }
+
+  return null;
+}
 
 // Read .ralph/.feedback content and delete the file. Returns trimmed content or ''.
 export function readAndClearFeedback(prdDir) {
@@ -21,6 +101,7 @@ export async function run(opts = {}) {
   const tool = opts.tool || 'claude';
   const researchModel = opts.researchModel || 'perplexity/sonar-pro';
   const dryRun = opts.dryRun || false;
+  const exitFn = opts.exitFn || ((code) => process.exit(code));
 
   const prdDir = findPrdDir(opts.prdDir);
   const config = new Config(prdDir);
@@ -29,6 +110,13 @@ export async function run(opts = {}) {
   const data = config.load();
   info(`Project: ${c.bold}${data.project}${c.reset}`);
   info(`Branch: ${c.cyan}${data.branchName}${c.reset}`);
+
+  // Check for pause state and log resume message
+  const pauseState = config.getPauseState();
+  if (pauseState) {
+    info(`Resuming from pause (reason: ${pauseState.reason}). Last story: ${pauseState.lastStoryId}.`);
+    config.clearPauseState();
+  }
 
   const { total, done, pending } = config.getProgress(data);
   info(`Progress: ${progressBar(done, total)}`);
@@ -103,6 +191,9 @@ export async function run(opts = {}) {
     const loopStartedAt = Date.now();
     logger.emit({ type: 'loop_start', maxIterations, tool });
 
+    // Track consecutive story failures for auto-pause logic (reset on any success)
+    const consecutiveFailures = [];
+
     for (let i = 1; i <= maxIterations; i++) {
       if (stopped) break;
 
@@ -168,10 +259,16 @@ export async function run(opts = {}) {
       const logStream = logger.startStoryLog(story.id);
       const onData = (chunk) => logStream.write(chunk);
 
-      // Spawn agent
+      // Spawn agent with retry logic for transient errors
       logger.emit({ type: 'agent_spawn', storyId: story.id, tool });
       const startTime = Date.now();
-      const result = await spawnAgent(prompt, story, tool, onData);
+      const retryResult = await retryWithBackoff(
+        () => spawnAgent(prompt, story, tool, onData),
+        classifyError,
+        (msg) => warn(msg),
+        sleep,
+      );
+      const result = retryResult.result;
       const elapsed = Date.now() - startTime;
 
       // Record completedAt and durationMs on the story
@@ -184,6 +281,46 @@ export async function run(opts = {}) {
 
       console.log('');
       info(`Iteration ${i} done in ${formatDuration(elapsed)} (exit code: ${result.code})`);
+
+      // Handle exhausted retries — mark failed and move to next story
+      if (retryResult.exhausted) {
+        warn(`Story ${story.id}: all ${retryResult.retries} retries exhausted. Marking as failed and moving to next story.`);
+        config.updateStory(story.id, { failed: true });
+        const classification = classifyError(result.code, result.stderr, result.killed);
+        consecutiveFailures.push({ storyId: story.id, errorType: classification.type, retryable: classification.retryable });
+        const pauseCheck = checkAutoPause(consecutiveFailures);
+        if (pauseCheck) {
+          error(`Loop paused: ${pauseCheck.message}`);
+          config.setPauseState(pauseCheck.reason, story.id, consecutiveFailures.length);
+          config.updateStatus(`paused: ${pauseCheck.reason}`);
+          config.releaseLock();
+          registry.deregister(process.pid);
+          exitFn(2);
+          return;
+        }
+        continue;
+      }
+
+      // Handle non-retryable errors — move to next story immediately
+      if (retryResult.skipped) {
+        const classification = classifyError(result.code, result.stderr, result.killed);
+        warn(`Story ${story.id}: non-retryable error (${classification.type}). Moving to next story.`);
+        consecutiveFailures.push({ storyId: story.id, errorType: classification.type, retryable: classification.retryable });
+        const pauseCheck = checkAutoPause(consecutiveFailures);
+        if (pauseCheck) {
+          error(`Loop paused: ${pauseCheck.message}`);
+          config.setPauseState(pauseCheck.reason, story.id, consecutiveFailures.length);
+          config.updateStatus(`paused: ${pauseCheck.reason}`);
+          config.releaseLock();
+          registry.deregister(process.pid);
+          exitFn(2);
+          return;
+        }
+        continue;
+      }
+
+      // Story succeeded — reset consecutive failure streak
+      consecutiveFailures.length = 0;
 
       // Check if story is now marked as passed
       const refreshedData = config.load();

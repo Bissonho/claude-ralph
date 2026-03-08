@@ -77,10 +77,11 @@ export function spawnProcess(command, args, stdin, env, onData) {
   return new Promise((resolve, reject) => {
     const proc = spawn(command, args, {
       env,
-      stdio: ['pipe', 'pipe', 'inherit'],
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
 
     let output = '';
+    let stderr = '';
     let killed = false;
 
     proc.stdout.on('data', (chunk) => {
@@ -88,6 +89,12 @@ export function spawnProcess(command, args, stdin, env, onData) {
       output += text;
       process.stderr.write(text); // tee to terminal
       if (onData) onData(text);
+    });
+
+    proc.stderr.on('data', (chunk) => {
+      const text = chunk.toString();
+      stderr += text;
+      process.stderr.write(text); // real-time visibility
     });
 
     proc.stdin.on('error', () => {
@@ -104,9 +111,9 @@ export function spawnProcess(command, args, stdin, env, onData) {
 
     proc.on('close', (code) => {
       if (killed) {
-        resolve({ output, code: -1, killed: true });
+        resolve({ output, stderr, code: -1, killed: true });
       } else {
-        resolve({ output, code, killed: false });
+        resolve({ output, stderr, code, killed: false });
       }
     });
 
@@ -131,6 +138,38 @@ export function spawnProcess(command, args, stdin, env, onData) {
       process.removeListener('SIGTERM', cleanup);
     });
   });
+}
+
+// Classify an error from a spawned process result into a structured error type.
+// Parameters: exitCode (number), stderr (string), killed (boolean, optional)
+// Returns: {type, retryable, message}
+export function classifyError(exitCode, stderr, killed = false) {
+  const s = (stderr || '').toLowerCase();
+
+  if (killed) {
+    return { type: 'killed', retryable: false, message: 'Process was killed' };
+  }
+
+  if (exitCode === 124 || s.includes('timeout')) {
+    return { type: 'timeout', retryable: true, message: 'Operation timed out' };
+  }
+
+  if (s.includes('401') || s.includes('403') || s.includes('unauthorized') ||
+      s.includes('forbidden') || s.includes('authentication')) {
+    return { type: 'auth', retryable: false, message: 'Authentication or authorization error' };
+  }
+
+  if (s.includes('429') || s.includes('rate limit') || s.includes('rate.limit') ||
+      s.includes('too many requests') || s.includes('throttl')) {
+    return { type: 'rate_limit', retryable: true, message: 'Rate limit exceeded' };
+  }
+
+  if (s.includes('econnrefused') || s.includes('etimedout') || s.includes('enotfound') ||
+      s.includes('network') || s.includes('socket') || s.includes('dns')) {
+    return { type: 'network', retryable: true, message: 'Network error' };
+  }
+
+  return { type: 'unknown', retryable: true, message: 'Unknown error' };
 }
 
 // Research via OpenRouter API (no shell deps, pure Node.js)

@@ -1,6 +1,6 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from 'fs';
+import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync, mkdtempSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { Config } from './config.js';
@@ -86,5 +86,62 @@ describe('Config - OpenRouter config', () => {
   it('getEnabledModels returns [] when config.json missing', () => {
     rmSync(cfg.configFile, { force: true });
     assert.deepEqual(cfg.getEnabledModels(), []);
+  });
+});
+
+describe('Config - pause state', () => {
+  let tmpDir;
+  let cfg;
+
+  before(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'ralph-pause-test-'));
+    cfg = new Config(tmpDir);
+  });
+
+  after(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('has pauseFile property pointing to pause.json in prdDir', () => {
+    assert.equal(cfg.pauseFile, join(tmpDir, 'pause.json'));
+  });
+
+  it('getPauseState returns null when pause.json does not exist', () => {
+    rmSync(cfg.pauseFile, { force: true });
+    assert.equal(cfg.getPauseState(), null);
+  });
+
+  it('setPauseState writes pause.json with required fields', () => {
+    cfg.setPauseState('auth failures', 'US-003', 3);
+    assert.ok(existsSync(cfg.pauseFile));
+    const raw = readFileSync(cfg.pauseFile, 'utf-8');
+    const data = JSON.parse(raw);
+    assert.equal(data.reason, 'auth failures');
+    assert.equal(data.lastStoryId, 'US-003');
+    assert.equal(data.consecutiveFailures, 3);
+    assert.ok(data.pausedAt, 'should include pausedAt timestamp');
+  });
+
+  it('getPauseState reads and returns pause.json data', () => {
+    const data = cfg.getPauseState();
+    assert.equal(data.reason, 'auth failures');
+    assert.equal(data.lastStoryId, 'US-003');
+    assert.equal(data.consecutiveFailures, 3);
+    assert.ok(data.pausedAt);
+  });
+
+  it('setPauseState overwrites existing pause.json', () => {
+    cfg.setPauseState('network failures', 'US-007', 5);
+    const data = cfg.getPauseState();
+    assert.equal(data.reason, 'network failures');
+    assert.equal(data.lastStoryId, 'US-007');
+    assert.equal(data.consecutiveFailures, 5);
+  });
+
+  it('pausedAt is a valid ISO timestamp', () => {
+    cfg.setPauseState('test reason', 'US-001', 1);
+    const data = cfg.getPauseState();
+    const d = new Date(data.pausedAt);
+    assert.ok(!isNaN(d.getTime()), 'pausedAt should be a valid date');
   });
 });

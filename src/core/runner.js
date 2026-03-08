@@ -77,10 +77,11 @@ export function spawnProcess(command, args, stdin, env, onData) {
   return new Promise((resolve, reject) => {
     const proc = spawn(command, args, {
       env,
-      stdio: ['pipe', 'pipe', 'inherit'],
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
 
     let output = '';
+    let stderr = '';
     let killed = false;
 
     proc.stdout.on('data', (chunk) => {
@@ -88,6 +89,12 @@ export function spawnProcess(command, args, stdin, env, onData) {
       output += text;
       process.stderr.write(text); // tee to terminal
       if (onData) onData(text);
+    });
+
+    proc.stderr.on('data', (chunk) => {
+      const text = chunk.toString();
+      stderr += text;
+      process.stderr.write(text); // real-time visibility
     });
 
     proc.stdin.on('error', () => {
@@ -104,9 +111,9 @@ export function spawnProcess(command, args, stdin, env, onData) {
 
     proc.on('close', (code) => {
       if (killed) {
-        resolve({ output, code: -1, killed: true });
+        resolve({ output, stderr, code: -1, killed: true });
       } else {
-        resolve({ output, code, killed: false });
+        resolve({ output, stderr, code, killed: false });
       }
     });
 

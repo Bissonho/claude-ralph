@@ -116,6 +116,44 @@ describe('runner - spawnAgent with OpenRouter model', () => {
   });
 });
 
+describe('runner - stderr capture', () => {
+  it('spawnProcess captures stderr into result.stderr', async () => {
+    const { spawnProcess } = await import('./runner.js');
+    const result = await spawnProcess(
+      'node', ['-e', "process.stderr.write('error output')"],
+      '', process.env
+    );
+    assert.ok('stderr' in result, 'result should have stderr field');
+    assert.ok(result.stderr.includes('error output'), 'stderr should contain stderr output');
+  });
+
+  it('result object has {output, stderr, code, killed} shape', async () => {
+    const { spawnProcess } = await import('./runner.js');
+    const result = await spawnProcess(
+      'node', ['-e', "process.stdout.write('out'); process.stderr.write('err')"],
+      '', process.env
+    );
+    assert.ok('output' in result, 'result should have output field');
+    assert.ok('stderr' in result, 'result should have stderr field');
+    assert.ok('code' in result, 'result should have code field');
+    assert.ok('killed' in result, 'result should have killed field');
+    assert.ok(result.output.includes('out'), 'output should have stdout');
+    assert.ok(result.stderr.includes('err'), 'stderr should have stderr content');
+    assert.equal(result.code, 0);
+    assert.equal(result.killed, false);
+  });
+
+  it('stderr is empty string when process writes nothing to stderr', async () => {
+    const { spawnProcess } = await import('./runner.js');
+    const result = await spawnProcess(
+      'node', ['-e', "process.stdout.write('only stdout')"],
+      '', process.env
+    );
+    assert.equal(typeof result.stderr, 'string', 'stderr should be a string');
+    assert.equal(result.stderr, '', 'stderr should be empty string when no stderr');
+  });
+});
+
 describe('runner - onData callback', () => {
   it('spawnProcess calls onData callback with stdout chunks', async () => {
     const { spawnProcess } = await import('./runner.js');

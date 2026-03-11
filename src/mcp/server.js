@@ -224,6 +224,17 @@ const TOOLS = [
     },
   },
   {
+    name: 'ralph_logs',
+    description: 'Read last N lines from the Ralph loop log (.ralph/logs/ralph-loop.log).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        lines: { type: 'number', description: 'Number of lines to return (default 20)', default: 20 },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'ralph_worktree_create',
     description: 'Create a git worktree with a new branch. Copies codebase patterns from main .ralph/.',
     inputSchema: {
@@ -441,17 +452,30 @@ async function handleTool(name, args) {
 
     case 'ralph_start': {
       const { spawn } = await import('child_process');
+      const { openSync, mkdirSync: mkdirSyncFs, writeFileSync: writeFileSyncFs } = await import('fs');
+      const { join: joinPath } = await import('path');
       const maxIter = args.maxIterations || 30;
       const toolArg = args.tool || 'claude';
 
+      // Ensure logs directory exists and open log file for stdout/stderr
+      const prdDir = findPrdDir();
+      const logsDir = joinPath(prdDir, 'logs');
+      mkdirSyncFs(logsDir, { recursive: true });
+      const logFile = joinPath(logsDir, 'ralph-loop.log');
+      const fd = openSync(logFile, 'a');
+
       const child = spawn('ralph', ['run', '--max-iterations', String(maxIter), '--tool', toolArg], {
         detached: true,
-        stdio: 'ignore',
+        stdio: ['ignore', fd, fd],
         cwd: process.cwd(),
       });
       child.unref();
 
-      return { ok: true, pid: child.pid, maxIterations: maxIter, tool: toolArg };
+      // Write PID to .pid file for process tracking
+      const pidFile = joinPath(prdDir, '.pid');
+      writeFileSyncFs(pidFile, String(child.pid));
+
+      return { ok: true, pid: child.pid, maxIterations: maxIter, tool: toolArg, logFile };
     }
 
     case 'ralph_init': {
@@ -570,6 +594,21 @@ async function handleTool(name, args) {
       }
       config.saveGlobalConfig(cfg);
       return { ok: true, id: args.id, enabled: args.enabled };
+    }
+
+    case 'ralph_logs': {
+      const { existsSync: existsSyncFs, readFileSync: readFileSyncFs } = await import('fs');
+      const { join: joinPath2 } = await import('path');
+      const prdDirLogs = findPrdDir();
+      const logFilePath = joinPath2(prdDirLogs, 'logs', 'ralph-loop.log');
+      if (!existsSyncFs(logFilePath)) {
+        return { ok: false, message: 'No log file found. Ralph has not been started with ralph_start yet.' };
+      }
+      const n = args.lines || 20;
+      const content = readFileSyncFs(logFilePath, 'utf-8');
+      const allLines = content.split('\n').filter((l) => l.length > 0);
+      const tail = allLines.slice(-n);
+      return { ok: true, lines: tail.length, total: allLines.length, content: tail.join('\n') };
     }
 
     case 'ralph_worktree_create': {

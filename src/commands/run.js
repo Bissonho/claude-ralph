@@ -159,6 +159,9 @@ export async function run(opts = {}) {
   // Activity logger
   const logger = new ActivityLogger(prdDir);
 
+  // Ignore SIGHUP so the loop survives terminal/SSH disconnects
+  process.on('SIGHUP', () => {});
+
   // Graceful shutdown
   let stopped = false;
   const shutdown = () => {

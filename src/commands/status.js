@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
 import { Config } from '../core/config.js';
 import { c, progressBar, findPrdDir } from '../utils.js';
 
@@ -66,17 +68,50 @@ export async function status(opts = {}) {
   console.log('');
 }
 
+// Read PID from .pid file and check if alive
+function getLoopProcess(prdDir) {
+  const pidFile = join(prdDir, '.pid');
+  if (!existsSync(pidFile)) return { pid: null, alive: false };
+  const pid = parseInt(readFileSync(pidFile, 'utf-8').trim(), 10);
+  if (isNaN(pid)) return { pid: null, alive: false };
+  try {
+    process.kill(pid, 0);
+    return { pid, alive: true };
+  } catch {
+    return { pid, alive: false };
+  }
+}
+
+// Read last N lines from ralph-loop.log
+function getLastLogLines(prdDir, n = 5) {
+  const logFile = join(prdDir, 'logs', 'ralph-loop.log');
+  if (!existsSync(logFile)) return [];
+  try {
+    const content = readFileSync(logFile, 'utf-8');
+    const lines = content.split('\n').filter((l) => l.length > 0);
+    return lines.slice(-n);
+  } catch {
+    return [];
+  }
+}
+
 // Compact status for MCP (minimal tokens)
 export function getCompactStatus(config) {
   const data = config.load();
   const { total, done, pending, pct } = config.getProgress(data);
   const next = config.getNextStory(data);
 
+  const proc = getLoopProcess(config.prdDir);
+  const lastLogLines = getLastLogLines(config.prdDir, 5);
+
   return {
     project: data.project,
     branch: data.branchName,
     progress: `${done}/${total} (${pct}%)`,
     pending,
+    pid: proc.pid,
+    alive: proc.alive,
+    lastLogLines,
     next: next ? { id: next.id, title: next.title, model: next.model, effort: next.effort } : null,
     stories: data.userStories.map((s) => ({
       id: s.id,

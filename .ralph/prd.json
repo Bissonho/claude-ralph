@@ -1,120 +1,101 @@
 {
-  "project": "ralph-loop-resilience",
-  "branchName": "ralph/loop-resilience",
-  "description": "Add connection resilience to the Ralph loop: capture stderr, classify errors (auth/network/rate-limit), retry with exponential backoff for transient errors, auto-pause on persistent failures, and resume from where it stopped.",
+  "project": "process-survival",
+  "branchName": "ralph/process-survival",
+  "description": "Fix Ralph process survival: SIGHUP handling, persistent log files, enhanced ralph_start with log redirection, enriched ralph_status with PID/uptime/logs, and new ralph_logs MCP tool.",
   "qualityChecks": [
     {
       "name": "syntax",
-      "command": "node --check src/core/runner.js src/core/config.js src/commands/run.js 2>&1"
+      "command": "node --check src/mcp/server.js src/commands/run.js src/commands/status.js"
     },
     {
-      "name": "test",
+      "name": "tests",
       "command": "node --test src/**/*.test.js 2>&1 || true"
     }
   ],
   "userStories": [
     {
-      "id": "RES-001",
-      "title": "Capture stderr from spawned Claude Code processes",
-      "description": "Modify spawnProcess() in src/core/runner.js to capture stderr output from spawned Claude Code processes instead of inheriting it. Store stderr in the result object alongside stdout, exit code, and killed status. This is essential for error classification. Change stdio from ['pipe', 'pipe', 'inherit'] to ['pipe', 'pipe', 'pipe'] and collect stderr chunks. The result object should have a new 'stderr' field with the full stderr output as a string. Also update spawnAgent() to pass stderr through to the caller. Make sure normal stderr output is still logged to console.error in real-time so the user can see progress, but also accumulated for later analysis.",
+      "id": "PS-001",
+      "title": "Add SIGHUP handler to run.js",
+      "description": "Add process.on('SIGHUP', () => {}) in the run() function to ignore SIGHUP signals, so the Ralph loop survives terminal/SSH disconnects. Must be added alongside existing SIGINT/SIGTERM handlers.",
       "acceptanceCriteria": [
-        "spawnProcess() captures stderr into result.stderr string",
-        "stderr is still printed to console.error in real-time",
-        "result object has {output, stderr, code, killed} shape",
-        "Existing tests still pass"
+        "process.on('SIGHUP') is registered in run.js",
+        "SIGHUP is ignored (empty handler) so process does not terminate",
+        "Existing SIGINT/SIGTERM shutdown handlers are preserved"
       ],
       "priority": 1,
       "passes": true,
-      "tddType": "testable",
-      "effort": "medium",
+      "tddType": "frontend",
+      "effort": "low",
       "model": "sonnet",
-      "startedAt": "2026-03-08T07:30:52.308Z",
-      "completedAt": "2026-03-08T07:32:02.269Z",
-      "durationMs": 69941
+      "notes": ""
     },
     {
-      "id": "RES-002",
-      "title": "Error classification module",
-      "description": "Create a new function classifyError(exitCode, stderr) in src/core/runner.js that analyzes the exit code and stderr output to classify the error type. Return an object with {type, retryable, message}. Error types: 'auth' (401/403/unauthorized/forbidden/authentication in stderr — NOT retryable), 'network' (ECONNREFUSED/ETIMEDOUT/ENOTFOUND/network/socket/DNS in stderr — retryable), 'rate_limit' (429/rate.limit/too.many.requests/throttl in stderr — retryable), 'timeout' (exit code 124 or timeout in stderr — retryable), 'killed' (killed flag true — NOT retryable), 'unknown' (anything else — retryable for first 2 attempts then not). Export the function so it can be used by the run command. Add unit tests in src/core/runner.test.js.",
+      "id": "PS-002",
+      "title": "Persistent log file for detached ralph_start",
+      "description": "Modify ralph_start in server.js to redirect stdout/stderr to a log file (.ralph/logs/ralph-loop.log) instead of stdio:'ignore'. Use openSync to create file descriptors and pass them to spawn's stdio option. Create the logs directory if it doesn't exist.",
       "acceptanceCriteria": [
-        "classifyError() returns {type, retryable, message} object",
-        "Correctly classifies auth errors (401, 403, unauthorized) as non-retryable",
-        "Correctly classifies network errors (ECONNREFUSED, ETIMEDOUT) as retryable",
-        "Correctly classifies rate limit errors (429, too many requests) as retryable",
-        "Correctly classifies timeout (exit code 124) as retryable",
-        "Unit tests cover all error types in src/core/runner.test.js"
+        "ralph_start spawns with stdio redirected to .ralph/logs/ralph-loop.log",
+        "Log file is created/appended (not truncated) on each start",
+        "Logs directory is created if missing",
+        "The spawned process remains detached and unref'd"
       ],
       "priority": 2,
       "passes": true,
-      "tddType": "testable",
+      "tddType": "frontend",
       "effort": "medium",
       "model": "sonnet",
-      "startedAt": "2026-03-08T07:32:04.319Z",
-      "completedAt": "2026-03-08T07:33:41.402Z",
-      "durationMs": 97083
+      "notes": ""
     },
     {
-      "id": "RES-003",
-      "title": "Retry with exponential backoff for transient errors",
-      "description": "Modify the main loop in src/commands/run.js to retry failed stories when classifyError() returns retryable=true. Implement exponential backoff: wait 5s, 15s, 45s between retries (base 5s, multiplier 3x). Maximum 3 retry attempts per story. Track retry count per story. Log each retry attempt with the error type, attempt number, and wait time. If all retries exhausted for a story, mark it as failed and move to next story. Import classifyError from runner.js. The retry logic should be in the main iteration loop after checking the result code. Between retries, log a countdown message every 5 seconds so the user knows the loop is waiting, not frozen.",
+      "id": "PS-003",
+      "title": "Enrich ralph_status with PID, uptime, and log tail",
+      "description": "Enhance getCompactStatus() in status.js and the ralph_status MCP handler to include: running PID (from .ralph/.lock or status.txt), process uptime, last story processed, and last 5 lines of ralph-loop.log. Check if PID is still alive using process.kill(pid, 0).",
       "acceptanceCriteria": [
-        "Failed stories with retryable errors are retried up to 3 times",
-        "Backoff follows exponential pattern: 5s, 15s, 45s",
-        "Each retry logs: error type, attempt number, wait duration",
-        "After 3 failed retries, story is skipped and loop continues to next",
-        "Non-retryable errors skip retry and move to next story immediately",
-        "Countdown messages logged every 5s during backoff wait"
+        "ralph_status returns pid field (or null if not running)",
+        "ralph_status returns alive boolean (PID check)",
+        "ralph_status returns lastLogLines array (last 5 lines of ralph-loop.log)",
+        "Existing status fields are preserved"
       ],
       "priority": 3,
       "passes": true,
-      "tddType": "testable",
-      "effort": "high",
+      "tddType": "frontend",
+      "effort": "medium",
       "model": "sonnet",
-      "startedAt": "2026-03-08T07:33:43.445Z",
-      "completedAt": "2026-03-08T07:38:31.693Z",
-      "durationMs": 288247
+      "notes": ""
     },
     {
-      "id": "RES-004",
-      "title": "Auto-pause loop on persistent auth or network failures",
-      "description": "Add logic to src/commands/run.js that detects persistent failures and auto-pauses the loop instead of burning through all remaining stories. Track consecutive failures across stories (not just retries within one story). If 3 consecutive stories fail with the same non-retryable error type (like 'auth'), OR if 5 consecutive stories fail with any error type, pause the loop. When pausing: write 'paused' to .ralph/status.txt with the reason, log a clear message explaining why the loop paused and what the user should do (e.g., 'Loop paused: authentication failed 3 times consecutively. Check your API key and run ralph run to resume.'), release the lock file, and exit with code 2 (distinct from 0=success, 1=error). Also add a new function setPauseState(reason) and getPauseState() in src/core/config.js that writes/reads a .ralph/pause.json file with {reason, pausedAt, lastStoryId, consecutiveFailures}.",
+      "id": "PS-004",
+      "title": "Add ralph_logs MCP tool",
+      "description": "Add a new MCP tool 'ralph_logs' that reads the last N lines (default 20) from .ralph/logs/ralph-loop.log. Parameters: lines (number, default 20). Returns the log content as text. Handle missing log file gracefully.",
       "acceptanceCriteria": [
-        "Loop pauses after 3 consecutive same-type non-retryable failures",
-        "Loop pauses after 5 consecutive failures of any type",
-        "Pause state written to .ralph/pause.json with reason and context",
-        "Status file updated to 'paused: <reason>'",
-        "Lock file released on pause",
-        "Exit code 2 on pause (distinct from 0 and 1)",
-        "Clear user-facing message logged explaining pause reason and recovery steps"
+        "New ralph_logs tool is registered in TOOLS array",
+        "Tool accepts optional 'lines' parameter (default 20)",
+        "Returns last N lines from .ralph/logs/ralph-loop.log",
+        "Returns helpful message if log file does not exist"
       ],
       "priority": 4,
       "passes": true,
-      "tddType": "testable",
-      "effort": "high",
+      "tddType": "frontend",
+      "effort": "low",
       "model": "sonnet",
-      "startedAt": "2026-03-08T07:38:33.729Z",
-      "completedAt": "2026-03-08T07:42:56.291Z",
-      "durationMs": 262562
+      "notes": ""
     },
     {
-      "id": "RES-005",
-      "title": "Resume from pause state on ralph run",
-      "description": "Modify src/commands/run.js so that when ralph run starts, it checks for .ralph/pause.json via getPauseState(). If a pause state exists, log a message like 'Resuming from pause (reason: auth failure). Last story: RES-003.' and clear the pause state file before starting the loop. The loop should start from the story that was running when it paused (using lastStoryId from pause.json to find the right story in prd.json). Also add a ralph status enhancement: when there is a pause.json, ralph status should show the pause reason and when it was paused. Update src/commands/status.js to read and display pause state. Delete the pause.json file after successfully resuming.",
+      "id": "PS-005",
+      "title": "Store PID in lock file for process tracking",
+      "description": "Modify the lock file mechanism in config.js to write the PID to .ralph/.lock instead of just creating an empty file. Update acquireLock() to write process.pid, and add a method isLoopRunning() that reads the PID from .lock and checks if it's alive. Update ralph_start to also write the child PID to a .ralph/.pid file for the detached case.",
       "acceptanceCriteria": [
-        "ralph run detects existing pause.json and logs resume message",
-        "Loop resumes from the story that was active when paused",
-        "pause.json is deleted after successful resume",
-        "ralph status shows pause state when paused (reason, time, last story)",
-        "If no pause.json exists, ralph run starts normally (no behavior change)"
+        "acquireLock() writes process.pid to .lock file",
+        "New isLoopRunning() method reads PID and checks with kill(pid,0)",
+        "ralph_start writes child.pid to .ralph/.pid",
+        "releaseLock() still removes the .lock file"
       ],
       "priority": 5,
       "passes": true,
-      "tddType": "testable",
+      "tddType": "frontend",
       "effort": "medium",
       "model": "sonnet",
-      "startedAt": "2026-03-08T07:42:58.334Z",
-      "completedAt": "2026-03-08T07:45:19.360Z",
-      "durationMs": 141026
+      "notes": ""
     }
   ]
 }

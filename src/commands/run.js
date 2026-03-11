@@ -97,7 +97,7 @@ export function readAndClearFeedback(prdDir) {
 }
 
 export async function run(opts = {}) {
-  const maxIterations = opts.maxIterations || 30;
+  let maxIterations = opts.maxIterations || 30;
   const tool = opts.tool || 'claude';
   const researchModel = opts.researchModel || 'perplexity/sonar-pro';
   const dryRun = opts.dryRun || false;
@@ -195,148 +195,187 @@ export async function run(opts = {}) {
     logger.emit({ type: 'loop_start', maxIterations, tool });
 
 
-    for (let i = 1; i <= maxIterations; i++) {
-      if (stopped) break;
+    let iteration = 0;
+    let loopComplete = false;
 
-      // Reload prd.json each iteration (agent may have modified it)
-      const currentData = config.load();
-      const story = config.getNextStory(currentData);
-
-      if (!story) {
-        success('All stories complete!');
-        config.updateStatus(formatStatus(config, currentData, i, maxIterations, '-', 'COMPLETE', loopStartedAt));
-        break;
-      }
-
-      const { done: currentDone, total: currentTotal } = config.getProgress(currentData);
-      const storyModel = story.model || 'sonnet';
-      const storyEffort = story.effort || 'medium';
-
-      console.log(`${c.bold}═══════════════════════════════════════════════════${c.reset}`);
-      console.log(`  ${c.cyan}Iteration ${i}/${maxIterations}${c.reset} | ${progressBar(currentDone, currentTotal)}`);
-      console.log(`  ${c.bold}${story.id}${c.reset}: ${story.title}`);
-      console.log(`  Model: ${c.magenta}${storyModel}${c.reset} | Effort: ${storyEffort} | Tool: ${tool}`);
-      console.log(`${c.bold}═══════════════════════════════════════════════════${c.reset}`);
-      console.log('');
-
-      logger.emit({ type: 'story_start', storyId: story.id, title: story.title, model: storyModel, effort: storyEffort, iteration: i });
-
-      config.updateStatus(
-        formatStatus(config, currentData, i, maxIterations, story.id, `running: ${story.title}`, loopStartedAt)
-      );
-
-      // Research phase
-      let researchContext = null;
-      if (story.research && story.research_query) {
-        info(`Running research: ${story.research_query}`);
-        const rModel = story.research_model || researchModel;
-        const { runResearch } = await import('../core/runner.js');
-        researchContext = await runResearch(story.research_query, rModel);
-        if (researchContext) {
-          info(`Research complete (${researchContext.length} chars)`);
+    // Outer loop: re-checks for newly added stories after the inner loop finishes.
+    // This ensures stories added to prd.json while the loop is running get processed.
+    while (!stopped && !loopComplete) {
+      const iterationsRemaining = maxIterations - iteration;
+      if (iterationsRemaining <= 0) {
+        // Check if there are still pending stories (may have been added mid-run)
+        const checkData = config.load();
+        const checkProgress = config.getProgress(checkData);
+        if (checkProgress.pending > 0) {
+          // Extend maxIterations to cover newly added stories plus buffer
+          const needed = checkProgress.pending + 2;
+          maxIterations += needed;
+          info(`Detected ${checkProgress.pending} new pending stories — extending loop by ${needed} iterations (new max: ${maxIterations})`);
+        } else {
+          break;
         }
       }
 
-      // Generate prompt
-      const patterns = config.readPatterns();
-      let prompt = generatePrompt(currentData, story, patterns);
+      for (let i = iteration + 1; i <= maxIterations; i++) {
+        if (stopped) break;
+        iteration = i;
 
-      // Prepend research context if available
-      if (researchContext) {
-        prompt = `# Research Context (for ${story.id})\n\n${researchContext}\n\n---\n\n${prompt}`;
-      }
+        // Reload prd.json each iteration (agent may have modified it)
+        const currentData = config.load();
+        const story = config.getNextStory(currentData);
 
-      // Prepend user feedback if available
-      const feedback = readAndClearFeedback(prdDir);
-      if (feedback) {
-        prompt = `## User Feedback\n\n${feedback}\n\n---\n\n${prompt}`;
-      }
+        if (!story) {
+          // No pending stories right now — but re-check once more outside the for loop
+          // in case new stories were added between the last agent completing and this check
+          break;
+        }
 
-      // Record startedAt on the story
-      const storyStartedAt = new Date().toISOString();
-      config.updateStory(story.id, { startedAt: storyStartedAt });
+        const { done: currentDone, total: currentTotal } = config.getProgress(currentData);
+        const storyModel = story.model || 'sonnet';
+        const storyEffort = story.effort || 'medium';
 
-      // Open log stream for this story
-      const logStream = logger.startStoryLog(story.id);
-      const onData = (chunk) => logStream.write(chunk);
-
-      // Spawn agent with retry logic for transient errors
-      logger.emit({ type: 'agent_spawn', storyId: story.id, tool });
-      const startTime = Date.now();
-      const retryResult = await retryWithBackoff(
-        () => spawnAgent(prompt, story, tool, onData),
-        classifyError,
-        (msg) => warn(msg),
-        sleep,
-      );
-      const result = retryResult.result;
-      const elapsed = Date.now() - startTime;
-
-      // Record completedAt and durationMs on the story
-      config.updateStory(story.id, { completedAt: new Date().toISOString(), durationMs: elapsed });
-
-      // Close log stream
-      await new Promise((resolve) => logStream.end(resolve));
-
-      logger.emit({ type: 'agent_done', storyId: story.id, code: result.code, durationMs: elapsed });
-
-      console.log('');
-      info(`Iteration ${i} done in ${formatDuration(elapsed)} (exit code: ${result.code})`);
-
-      // Handle exhausted retries — stop the loop (stories must complete in order)
-      if (retryResult.exhausted) {
-        const classification = classifyError(result.code, result.stderr, result.killed);
-        error(`Story ${story.id}: all ${retryResult.retries} retries exhausted (${classification.type}). Stopping loop — stories must complete in order.`);
-        config.updateStory(story.id, { failed: true });
-        config.setPauseState(`Story ${story.id} failed after ${retryResult.retries} retries (${classification.type})`, story.id, 1);
-        config.updateStatus(`paused: ${story.id} failed`);
-        config.releaseLock();
-        registry.deregister(process.pid);
-        exitFn(2);
-        return;
-      }
-
-      // Handle non-retryable errors — stop the loop (stories must complete in order)
-      if (retryResult.skipped) {
-        const classification = classifyError(result.code, result.stderr, result.killed);
-        error(`Story ${story.id}: non-retryable error (${classification.type}). Stopping loop — stories must complete in order.`);
-        config.setPauseState(`Story ${story.id} failed: non-retryable ${classification.type} error`, story.id, 1);
-        config.updateStatus(`paused: ${story.id} failed`);
-        config.releaseLock();
-        registry.deregister(process.pid);
-        exitFn(2);
-        return;
-      }
-
-      // Check if story is now marked as passed
-      const refreshedData = config.load();
-      const refreshedStory = refreshedData.userStories.find((s) => s.id === story.id);
-      if (refreshedStory && refreshedStory.passes) {
-        logger.emit({ type: 'story_done', storyId: story.id });
-      }
-
-      config.updateStatus(
-        formatStatus(config, refreshedData, i, maxIterations, story.id, 'done', loopStartedAt)
-      );
-
-      // Check for completion signal
-      if (result.output && result.output.includes('<promise>COMPLETE</promise>')) {
-        config.updateStatus(
-          formatStatus(config, refreshedData, i, maxIterations, '-', 'COMPLETE', loopStartedAt)
-        );
+        console.log(`${c.bold}═══════════════════════════════════════════════════${c.reset}`);
+        console.log(`  ${c.cyan}Iteration ${i}/${maxIterations}${c.reset} | ${progressBar(currentDone, currentTotal)}`);
+        console.log(`  ${c.bold}${story.id}${c.reset}: ${story.title}`);
+        console.log(`  Model: ${c.magenta}${storyModel}${c.reset} | Effort: ${storyEffort} | Tool: ${tool}`);
+        console.log(`${c.bold}═══════════════════════════════════════════════════${c.reset}`);
         console.log('');
-        success(`All tasks complete! Finished at iteration ${i}/${maxIterations}`);
-        break;
+
+        logger.emit({ type: 'story_start', storyId: story.id, title: story.title, model: storyModel, effort: storyEffort, iteration: i });
+
+        config.updateStatus(
+          formatStatus(config, currentData, i, maxIterations, story.id, `running: ${story.title}`, loopStartedAt)
+        );
+
+        // Research phase
+        let researchContext = null;
+        if (story.research && story.research_query) {
+          info(`Running research: ${story.research_query}`);
+          const rModel = story.research_model || researchModel;
+          const { runResearch } = await import('../core/runner.js');
+          researchContext = await runResearch(story.research_query, rModel);
+          if (researchContext) {
+            info(`Research complete (${researchContext.length} chars)`);
+          }
+        }
+
+        // Generate prompt
+        const patterns = config.readPatterns();
+        let prompt = generatePrompt(currentData, story, patterns);
+
+        // Prepend research context if available
+        if (researchContext) {
+          prompt = `# Research Context (for ${story.id})\n\n${researchContext}\n\n---\n\n${prompt}`;
+        }
+
+        // Prepend user feedback if available
+        const feedback = readAndClearFeedback(prdDir);
+        if (feedback) {
+          prompt = `## User Feedback\n\n${feedback}\n\n---\n\n${prompt}`;
+        }
+
+        // Record startedAt on the story
+        const storyStartedAt = new Date().toISOString();
+        config.updateStory(story.id, { startedAt: storyStartedAt });
+
+        // Open log stream for this story
+        const logStream = logger.startStoryLog(story.id);
+        const onData = (chunk) => logStream.write(chunk);
+
+        // Spawn agent with retry logic for transient errors
+        logger.emit({ type: 'agent_spawn', storyId: story.id, tool });
+        const startTime = Date.now();
+        const retryResult = await retryWithBackoff(
+          () => spawnAgent(prompt, story, tool, onData),
+          classifyError,
+          (msg) => warn(msg),
+          sleep,
+        );
+        const result = retryResult.result;
+        const elapsed = Date.now() - startTime;
+
+        // Record completedAt and durationMs on the story
+        config.updateStory(story.id, { completedAt: new Date().toISOString(), durationMs: elapsed });
+
+        // Close log stream
+        await new Promise((resolve) => logStream.end(resolve));
+
+        logger.emit({ type: 'agent_done', storyId: story.id, code: result.code, durationMs: elapsed });
+
+        console.log('');
+        info(`Iteration ${i} done in ${formatDuration(elapsed)} (exit code: ${result.code})`);
+
+        // Handle exhausted retries — stop the loop (stories must complete in order)
+        if (retryResult.exhausted) {
+          const classification = classifyError(result.code, result.stderr, result.killed);
+          error(`Story ${story.id}: all ${retryResult.retries} retries exhausted (${classification.type}). Stopping loop — stories must complete in order.`);
+          config.updateStory(story.id, { failed: true });
+          config.setPauseState(`Story ${story.id} failed after ${retryResult.retries} retries (${classification.type})`, story.id, 1);
+          config.updateStatus(`paused: ${story.id} failed`);
+          config.releaseLock();
+          registry.deregister(process.pid);
+          exitFn(2);
+          return;
+        }
+
+        // Handle non-retryable errors — stop the loop (stories must complete in order)
+        if (retryResult.skipped) {
+          const classification = classifyError(result.code, result.stderr, result.killed);
+          error(`Story ${story.id}: non-retryable error (${classification.type}). Stopping loop — stories must complete in order.`);
+          config.setPauseState(`Story ${story.id} failed: non-retryable ${classification.type} error`, story.id, 1);
+          config.updateStatus(`paused: ${story.id} failed`);
+          config.releaseLock();
+          registry.deregister(process.pid);
+          exitFn(2);
+          return;
+        }
+
+        // Check if story is now marked as passed
+        const refreshedData = config.load();
+        const refreshedStory = refreshedData.userStories.find((s) => s.id === story.id);
+        if (refreshedStory && refreshedStory.passes) {
+          logger.emit({ type: 'story_done', storyId: story.id });
+        }
+
+        config.updateStatus(
+          formatStatus(config, refreshedData, i, maxIterations, story.id, 'done', loopStartedAt)
+        );
+
+        // Check for completion signal
+        if (result.output && result.output.includes('<promise>COMPLETE</promise>')) {
+          config.updateStatus(
+            formatStatus(config, refreshedData, i, maxIterations, '-', 'COMPLETE', loopStartedAt)
+          );
+          console.log('');
+          success(`All tasks complete! Finished at iteration ${i}/${maxIterations}`);
+          loopComplete = true;
+          break;
+        }
+
+        if (result.killed) {
+          warn('Agent was killed. Stopping loop.');
+          loopComplete = true;
+          break;
+        }
+
+        // Brief pause between iterations
+        if (i < maxIterations && !stopped) {
+          await sleep(2000);
+        }
       }
 
-      if (result.killed) {
-        warn('Agent was killed. Stopping loop.');
-        break;
-      }
-
-      // Brief pause between iterations
-      if (i < maxIterations && !stopped) {
-        await sleep(2000);
+      // After the inner for loop exits, do a final re-check for newly added stories.
+      // This catches stories added while the loop was running that weren't yet visible.
+      if (!stopped && !loopComplete) {
+        const recheckData = config.load();
+        const recheckStory = config.getNextStory(recheckData);
+        if (!recheckStory) {
+          // Truly done — no pending stories remain
+          success('All stories complete!');
+          config.updateStatus(formatStatus(config, recheckData, iteration, maxIterations, '-', 'COMPLETE', loopStartedAt));
+          loopComplete = true;
+        }
+        // If recheckStory exists, the while loop will continue and process it
       }
     }
 
